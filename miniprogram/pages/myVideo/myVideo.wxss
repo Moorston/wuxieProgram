@@ -1,0 +1,31 @@
+page{
+  background: #fff;
+}
+.nav .cu-item.cur{
+  font-size: 30rpx;
+  font-weight: bold;
+}
+.nav .cu-item{
+  font-size: 30rpx;
+}
+
+.cu-timeline .cu-time {
+  font-size: 30rpx;
+  font-weight: bold;
+}
+
+.cu-card{
+  box-shadow: 0 2rpx 2rpx rgba(88, 88, 88, 0.233);
+}
+.cu-card>.cu-item{
+  margin: 0;
+}
+.cu-timeline>.cu-item{
+  padding: 30rpx 30rpx 30rpx 100rpx;
+}
+.cu-timeline>.cu-item>.content{
+  padding: 0;
+}
+.padding-btom{
+  padding-bottom: 210rpx;
+}

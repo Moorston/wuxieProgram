@@ -3,14 +3,92 @@ const app = getApp()
 
 Page({
   data: {
+    //tabbar
+    tabbar: {},
+
     avatarUrl: './user-unlogin.png',
     userInfo: {},
     logged: false,
     takeSession: false,
-    requestResult: ''
+    requestResult: '',
+    numList: [
+      {
+        name: '周一'
+      }, 
+      {
+        name: '周二'
+      }, 
+      {
+        name: '周三'
+      }, 
+      {
+        name: '周四'
+      },
+      {
+        name: '周五'
+      },
+      {
+        name: '周六'
+      },
+      {
+        name: '周日'
+      },
+    ],
+    num: 2,
+
+    cardCur: 0,
+    swiperList: [{
+      id: 0,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big84000.jpg'
+    }, {
+      id: 1,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big84001.jpg',
+    }, {
+      id: 2,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big39000.jpg'
+    }, {
+      id: 3,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big10001.jpg'
+    }, {
+      id: 4,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big25011.jpg'
+    }, {
+      id: 5,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big21016.jpg'
+    }, {
+      id: 6,
+      type: 'image',
+      url: 'https://ossweb-img.qq.com/images/lol/web201310/skin/big99008.jpg'
+    }],
+
+    tabList:[
+      {
+        id: 0,
+        name: "我的视频",
+        url: ""
+      },
+      {
+        id: 1,
+        name: "考核组",
+        url: ""
+      },
+    ]
+  },
+  numSteps() {
+    this.setData({
+      num: this.data.num == this.data.numList.length - 1 ? 0 : this.data.num + 1
+    })
   },
 
   onLoad: function() {
+    app.hideTabBar();
+    app.editTabbar();
     if (!wx.cloud) {
       wx.redirectTo({
         url: '../chooseLib/chooseLib',
