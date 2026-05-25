@@ -1,0 +1,62 @@
+# === Go ===
+api-server/api-server
+media-server/media-server
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+api-server/vendor/
+media-server/vendor/
+
+# === Node.js ===
+client/node_modules/
+client/dist/
+client/.hbuilderx/
+
+# === uni-app ===
+client/unpackage/
+client/.env.local
+client/.env.*.local
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Environment ===
+*.env
+.env.local
+.env.production
+
+# === Logs ===
+*.log
+logs/
+
+# === Docker ===
+deploy/mongo-data/
+deploy/redis-data/
+deploy/minio-data/
+
+# === Temp ===
+tmp/
+temp/
+*.tmp
+*.bak
+
+# === Uploads ===
+uploads/
+
+# === OS ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
