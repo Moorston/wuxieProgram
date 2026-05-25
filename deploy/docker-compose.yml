@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: wuxie-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/init.js
+    environment:
+      MONGO_INITDB_DATABASE: wuxie
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: wuxie-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: wuxie-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+  api-server:
+    build:
+      context: ../api-server
+      dockerfile: Dockerfile
+    container_name: wuxie-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      - GIN_MODE=release
+    volumes:
+      - ../api-server/configs:/app/configs
+    restart: unless-stopped
+
+  media-server:
+    build:
+      context: ../media-server
+      dockerfile: Dockerfile
+    container_name: wuxie-media
+    ports:
+      - "8081:8081"
+    depends_on:
+      - minio
+      - redis
+      - api-server
+    volumes:
+      - ../media-server/configs:/app/configs
+      - /tmp/wuxie-transcode:/tmp/wuxie-transcode
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: wuxie-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api-server
+      - media-server
+      - minio
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  redis-data:
+  minio-data:

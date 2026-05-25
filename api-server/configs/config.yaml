@@ -1,0 +1,22 @@
+server:
+  port: "8080"
+  mode: "debug"
+
+mongo:
+  uri: "mongodb://mongo:27017"
+  database: "wuxie"
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+
+jwt:
+  secret: "wuxie-jwt-secret-change-in-production"
+  expires: 72
+
+wx:
+  app_id: "your-wx-app-id"
+  secret: "your-wx-app-secret"
+
+media_url: "http://media-server:8081"

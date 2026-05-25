@@ -1,0 +1,84 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": { "navigationBarTitleText": "首页" }
+    },
+    {
+      "path": "pages/square/square",
+      "style": { "navigationBarTitleText": "广场" }
+    },
+    {
+      "path": "pages/checkin/checkin",
+      "style": { "navigationBarTitleText": "打卡" }
+    },
+    {
+      "path": "pages/rank/rank",
+      "style": { "navigationBarTitleText": "排位" }
+    },
+    {
+      "path": "pages/mine/mine",
+      "style": { "navigationBarTitleText": "我的" }
+    },
+    {
+      "path": "pages/login/login",
+      "style": { "navigationBarTitleText": "登录" }
+    },
+    {
+      "path": "pages/video-detail/video-detail",
+      "style": { "navigationBarTitleText": "视频详情" }
+    },
+    {
+      "path": "pages/my-video/my-video",
+      "style": { "navigationBarTitleText": "我的视频" }
+    },
+    {
+      "path": "pages/group/group",
+      "style": { "navigationBarTitleText": "考核组" }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "武协打卡",
+    "navigationBarBackgroundColor": "#1cbbb4",
+    "backgroundColor": "#f8f8f8"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#1cbbb4",
+    "backgroundColor": "#fff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png"
+      },
+      {
+        "pagePath": "pages/square/square",
+        "text": "广场",
+        "iconPath": "static/tab/square.png",
+        "selectedIconPath": "static/tab/square-active.png"
+      },
+      {
+        "pagePath": "pages/checkin/checkin",
+        "text": "打卡",
+        "iconPath": "static/tab/checkin.png",
+        "selectedIconPath": "static/tab/checkin-active.png"
+      },
+      {
+        "pagePath": "pages/rank/rank",
+        "text": "排位",
+        "iconPath": "static/tab/rank.png",
+        "selectedIconPath": "static/tab/rank-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "static/tab/mine.png",
+        "selectedIconPath": "static/tab/mine-active.png"
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+server:
+  port: "8081"
+
+minio:
+  endpoint: "minio:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  use_ssl: false
+  raw_bucket: "raw"
+  video_bucket: "video"
+  cover_bucket: "cover"
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+
+ffmpeg:
+  binary: "ffmpeg"
+  workers: 2
+
+api_server: "http://api-server:8080"

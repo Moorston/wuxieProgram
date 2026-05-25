@@ -1,0 +1,146 @@
+package repository
+
+import (
+	"context"
+	"time"
+
+	"wuxie-api/internal/model"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+type CheckinRepo struct {
+	coll *mongo.Collection
+}
+
+func NewCheckinRepo(db *mongo.Database) *CheckinRepo {
+	return &CheckinRepo{coll: db.Collection("checkins")}
+}
+
+func (r *CheckinRepo) Create(ctx context.Context, c *model.Checkin) error {
+	c.CreatedAt = time.Now()
+	c.UpdatedAt = time.Now()
+	result, err := r.coll.InsertOne(ctx, c)
+	if err != nil {
+		return err
+	}
+	c.ID = result.InsertedID.(primitive.ObjectID)
+	return nil
+}
+
+func (r *CheckinRepo) FindByID(ctx context.Context, id primitive.ObjectID) (*model.Checkin, error) {
+	var checkin model.Checkin
+	err := r.coll.FindOne(ctx, bson.M{"_id": id}).Decode(&checkin)
+	if err != nil {
+		return nil, err
+	}
+	return &checkin, nil
+}
+
+func (r *CheckinRepo) UpdateStatus(ctx context.Context, id primitive.ObjectID, status model.CheckinStatus, videoURL, coverURL string, duration float64) error {
+	update := bson.M{
+		"status":    status,
+		"updated_at": time.Now(),
+	}
+	if videoURL != "" {
+		update["video_url"] = videoURL
+	}
+	if coverURL != "" {
+		update["cover_url"] = coverURL
+	}
+	if duration > 0 {
+		update["duration"] = duration
+	}
+	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": update})
+	return err
+}
+
+func (r *CheckinRepo) List(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error) {
+	filter := bson.M{"status": model.CheckinStatusDone}
+
+	skip := int64((page - 1) * pageSize)
+	limit := int64(pageSize)
+
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(skip).
+		SetLimit(limit)
+
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var checkins []*model.Checkin
+	if err := cursor.All(ctx, &checkins); err != nil {
+		return nil, 0, err
+	}
+
+	return checkins, total, nil
+}
+
+func (r *CheckinRepo) ListByUser(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error) {
+	filter := bson.M{"user_id": userID, "status": model.CheckinStatusDone}
+
+	skip := int64((page - 1) * pageSize)
+	limit := int64(pageSize)
+
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(skip).
+		SetLimit(limit)
+
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var checkins []*model.Checkin
+	if err := cursor.All(ctx, &checkins); err != nil {
+		return nil, 0, err
+	}
+
+	return checkins, total, nil
+}
+
+func (r *CheckinRepo) Delete(ctx context.Context, id, userID primitive.ObjectID) error {
+	_, err := r.coll.DeleteOne(ctx, bson.M{"_id": id, "user_id": userID})
+	return err
+}
+
+func (r *CheckinRepo) IncrLikeCount(ctx context.Context, id primitive.ObjectID, delta int) error {
+	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
+		"$inc": bson.M{"like_count": delta},
+	})
+	return err
+}
+
+func (r *CheckinRepo) IncrCommentCount(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
+		"$inc": bson.M{"comment_count": 1},
+	})
+	return err
+}
+
+func (r *CheckinRepo) EnsureIndexes(ctx context.Context) error {
+	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "status", Value: 1}}},
+	})
+	return err
+}
