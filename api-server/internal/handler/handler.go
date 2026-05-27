@@ -143,7 +143,14 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 		pageSize = 10
 	}
 
-	checkins, total, err := h.checkinService.GetList(c.Request.Context(), oid, page, pageSize)
+	var groupID *primitive.ObjectID
+	if gid := c.Query("group_id"); gid != "" {
+		if id, err := primitive.ObjectIDFromHex(gid); err == nil {
+			groupID = &id
+		}
+	}
+
+	checkins, total, err := h.checkinService.GetList(c.Request.Context(), oid, groupID, page, pageSize)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -202,6 +209,48 @@ func (h *CheckinHandler) Delete(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+func (h *CheckinHandler) Search(c *gin.Context) {
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
+	keyword := c.Query("q")
+	if keyword == "" {
+		response.BadRequest(c, "keyword is required")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 10
+	}
+
+	checkins, total, err := h.checkinService.Search(c.Request.Context(), oid, keyword, page, pageSize)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	checkinIDs := make([]primitive.ObjectID, len(checkins))
+	for i, ci := range checkins {
+		checkinIDs[i] = ci.ID
+	}
+	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
+	for _, ci := range checkins {
+		ci.IsLiked = likedMap[ci.ID]
+	}
+
+	response.Success(c, gin.H{
+		"list":      checkins,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
 }
 
 type SocialHandler struct {

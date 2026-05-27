@@ -29,7 +29,7 @@ func main() {
 
 	// 确保存储桶存在
 	ctx := context.Background()
-	if err := minioClient.EnsureBuckets(ctx, cfg.MinIO.RawBucket, cfg.MinIO.VideoBucket, cfg.MinIO.CoverBucket); err != nil {
+	if err := minioClient.EnsureBuckets(ctx, cfg.MinIO.RawBucket, cfg.MinIO.VideoBucket, cfg.MinIO.CoverBucket, "resource"); err != nil {
 		log.Fatalf("failed to ensure buckets: %v", err)
 	}
 

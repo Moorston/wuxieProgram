@@ -16,6 +16,10 @@ func Setup(
 	socialH *handler.SocialHandler,
 	rankH *handler.RankHandler,
 	groupH *handler.GroupHandler,
+	trainingH *handler.TrainingHandler,
+	notifH *handler.NotificationHandler,
+	insightH *handler.InsightHandler,
+	resourceH *handler.ResourceHandler,
 	jwtMgr *jwt.JWTManager,
 	logger *zap.Logger,
 ) *gin.Engine {
@@ -42,6 +46,7 @@ func Setup(
 			auth.POST("/checkin/prepare", checkinH.Prepare)
 			auth.GET("/checkin/list", checkinH.GetList)
 			auth.GET("/checkin/mine", checkinH.GetMine)
+			auth.GET("/checkin/search", checkinH.Search)
 			auth.DELETE("/checkin/:id", checkinH.Delete)
 
 			// 社交
@@ -56,6 +61,55 @@ func Setup(
 			// 考核组
 			auth.GET("/group/list", groupH.List)
 			auth.GET("/group/:id", groupH.Detail)
+
+			// 训练计划
+			auth.POST("/training/plan", trainingH.CreatePlan)
+			auth.GET("/training/plans", trainingH.ListPlans)
+			auth.GET("/training/plan/:id", trainingH.GetPlan)
+			auth.PUT("/training/plan/:id", trainingH.UpdatePlan)
+			auth.DELETE("/training/plan/:id", trainingH.DeletePlan)
+			auth.GET("/training/today", trainingH.TodayTasks)
+			auth.PUT("/training/task/:plan_id/:day/:task_idx", trainingH.UpdateTask)
+			auth.GET("/training/plan/:id/report", trainingH.GetReport)
+
+			// 训练模板
+			auth.GET("/training/template/list", trainingH.ListTemplates)
+			auth.GET("/training/template/:id", trainingH.GetTemplate)
+			auth.POST("/training/template/:id/apply", trainingH.ApplyTemplate)
+
+			// 通知
+			auth.GET("/notification/list", notifH.List)
+			auth.GET("/notification/unread", notifH.UnreadCount)
+			auth.PUT("/notification/read/:id", notifH.MarkRead)
+			auth.PUT("/notification/read-all", notifH.MarkAllRead)
+			auth.DELETE("/notification/:id", notifH.Delete)
+			auth.GET("/notification/settings", notifH.GetSettings)
+			auth.PUT("/notification/settings", notifH.UpdateSettings)
+
+			// 感悟笔记
+			auth.POST("/insight", insightH.Create)
+			auth.GET("/insight/list", insightH.List)
+			auth.GET("/insight/public", insightH.ListPublic)
+			auth.GET("/insight/tags", insightH.GetTags)
+			auth.GET("/insight/mood-stats", insightH.MoodStats)
+			auth.GET("/insight/on-this-day", insightH.OnThisDay)
+			auth.GET("/insight/:id", insightH.GetByID)
+			auth.PUT("/insight/:id", insightH.Update)
+			auth.DELETE("/insight/:id", insightH.Delete)
+			auth.POST("/insight/:id/like", insightH.Like)
+
+			// 个人资料库
+			auth.GET("/resource/upload/presign", resourceH.Presign)
+			auth.POST("/resource/upload/callback", resourceH.UploadCallback)
+			auth.POST("/resource", resourceH.Create)
+			auth.GET("/resource/list", resourceH.List)
+			auth.GET("/resource/tags", resourceH.GetTags)
+			auth.GET("/resource/stats", resourceH.GetStats)
+			auth.GET("/resource/favorites", resourceH.ListFavorites)
+			auth.GET("/resource/:id", resourceH.GetByID)
+			auth.PUT("/resource/:id", resourceH.Update)
+			auth.DELETE("/resource/:id", resourceH.Delete)
+			auth.POST("/resource/:id/favorite", resourceH.ToggleFavorite)
 		}
 
 		// 内部接口（media-server回调）

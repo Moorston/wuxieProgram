@@ -1,7 +1,14 @@
 <template>
   <view class="square-page">
     <view class="search-bar">
-      <input class="search-input" placeholder="搜索视频" />
+      <input
+        class="search-input"
+        placeholder="搜索视频"
+        v-model="keyword"
+        confirm-type="search"
+        @confirm="onSearch"
+      />
+      <text v-if="keyword" class="search-clear" @tap="onClearSearch">✕</text>
     </view>
 
     <view class="tabs">
@@ -10,13 +17,13 @@
         :key="tab.id"
         class="tab-item"
         :class="{ active: currentTab === tab.id }"
-        @tap="currentTab = tab.id"
+        @tap="onTabChange(tab.id)"
       >{{ tab.name }}</text>
     </view>
 
     <view class="waterfall">
       <view class="column left">
-        <view v-for="(item, index) in leftList" :key="item.id" class="card" @tap="goDetail(item.id)">
+        <view v-for="item in leftList" :key="item.id" class="card" @tap="goDetail(item.id)">
           <image class="cover" :src="item.cover_url" mode="widthFix" />
           <view class="card-info">
             <text class="card-desc">{{ item.description }}</text>
@@ -34,7 +41,7 @@
         </view>
       </view>
       <view class="column right">
-        <view v-for="(item, index) in rightList" :key="item.id" class="card" @tap="goDetail(item.id)">
+        <view v-for="item in rightList" :key="item.id" class="card" @tap="goDetail(item.id)">
           <image class="cover" :src="item.cover_url" mode="widthFix" />
           <view class="card-info">
             <text class="card-desc">{{ item.description }}</text>
@@ -52,12 +59,23 @@
         </view>
       </view>
     </view>
+
+    <view v-if="loading" class="loading-tip">
+      <text>加载中...</text>
+    </view>
+    <view v-else-if="noMore && list.length > 0" class="loading-tip">
+      <text>没有更多了</text>
+    </view>
+    <view v-else-if="list.length === 0 && !loading" class="loading-tip">
+      <text>暂无内容</text>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getCheckinList, toggleLike } from '../../api'
+import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { getCheckinList, searchCheckinList, toggleLike, getProfile } from '../../api'
 
 const currentTab = ref(0)
 const tabs = [
@@ -65,17 +83,101 @@ const tabs = [
   { id: 1, name: '考核组' },
 ]
 
+const keyword = ref('')
 const list = ref<any[]>([])
+const page = ref(1)
+const total = ref(0)
+const loading = ref(false)
+const pageSize = 10
+const userGroupId = ref('')
+
+const noMore = computed(() => list.value.length >= total.value)
 
 const leftList = computed(() => list.value.filter((_, i) => i % 2 === 0))
 const rightList = computed(() => list.value.filter((_, i) => i % 2 === 1))
 
 onMounted(async () => {
   try {
-    const res: any = await getCheckinList(1, 20)
-    list.value = res.list || []
+    const profile: any = await getProfile()
+    if (profile?.group_id) {
+      userGroupId.value = profile.group_id
+    }
   } catch (e) {}
+  loadData()
 })
+
+onPullDownRefresh(async () => {
+  await refreshData()
+  uni.stopPullDownRefresh()
+})
+
+onReachBottom(() => {
+  loadMore()
+})
+
+async function loadData() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const groupId = currentTab.value === 1 && userGroupId.value ? userGroupId.value : undefined
+    const res: any = keyword.value
+      ? await searchCheckinList(keyword.value, 1, pageSize)
+      : await getCheckinList(1, pageSize, groupId)
+    list.value = res.list || []
+    total.value = res.total || 0
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+async function refreshData() {
+  page.value = 1
+  loading.value = true
+  try {
+    const groupId = currentTab.value === 1 && userGroupId.value ? userGroupId.value : undefined
+    const res: any = keyword.value
+      ? await searchCheckinList(keyword.value, 1, pageSize)
+      : await getCheckinList(1, pageSize, groupId)
+    list.value = res.list || []
+    total.value = res.total || 0
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+async function loadMore() {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const nextPage = page.value + 1
+    const groupId = currentTab.value === 1 && userGroupId.value ? userGroupId.value : undefined
+    const res: any = keyword.value
+      ? await searchCheckinList(keyword.value, nextPage, pageSize)
+      : await getCheckinList(nextPage, pageSize, groupId)
+    list.value.push(...(res.list || []))
+    total.value = res.total || 0
+    page.value = nextPage
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+function onSearch() {
+  if (!keyword.value.trim()) return
+  loadData()
+}
+
+function onClearSearch() {
+  keyword.value = ''
+  loadData()
+}
+
+function onTabChange(tabId: number) {
+  currentTab.value = tabId
+  loadData()
+}
 
 async function onLike(item: any) {
   try {
@@ -99,9 +201,17 @@ function goDetail(id: string) {
   border-radius: 32rpx;
   padding: 16rpx 24rpx;
   margin-bottom: 20rpx;
+  display: flex;
+  align-items: center;
 }
 .search-input {
   font-size: 28rpx;
+  flex: 1;
+}
+.search-clear {
+  font-size: 28rpx;
+  color: #999;
+  padding: 0 12rpx;
 }
 .tabs {
   display: flex;
@@ -177,5 +287,11 @@ function goDetail(id: string) {
   margin-left: 4rpx;
   font-size: 22rpx;
   color: #999;
+}
+.loading-tip {
+  text-align: center;
+  padding: 30rpx;
+  color: #999;
+  font-size: 24rpx;
 }
 </style>

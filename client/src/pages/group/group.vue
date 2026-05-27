@@ -17,6 +17,10 @@
         <text v-if="(g.members || []).length > 5" class="more">+{{ g.members.length - 5 }}</text>
       </view>
     </view>
+
+    <view v-if="groups.length === 0" class="empty">
+      <text>暂无考核组</text>
+    </view>
   </view>
 </template>
 
@@ -33,7 +37,7 @@ onMounted(async () => {
 })
 
 function goDetail(id: string) {
-  uni.navigateTo({ url: `/pages/group/group?id=${id}` })
+  uni.navigateTo({ url: `/pages/group/detail?id=${id}` })
 }
 </script>
 
@@ -81,5 +85,10 @@ function goDetail(id: string) {
   font-size: 22rpx;
   color: #999;
   margin-left: 8rpx;
+}
+.empty {
+  text-align: center;
+  padding: 100rpx;
+  color: #999;
 }
 </style>

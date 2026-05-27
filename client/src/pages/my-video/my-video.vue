@@ -13,24 +13,84 @@
       </view>
     </view>
 
-    <view v-if="list.length === 0" class="empty">
+    <view v-if="loading" class="loading-tip">
+      <text>加载中...</text>
+    </view>
+    <view v-else-if="noMore && list.length > 0" class="loading-tip">
+      <text>没有更多了</text>
+    </view>
+
+    <view v-if="list.length === 0 && !loading" class="empty">
       <text>暂无打卡记录</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getMyCheckins } from '../../api'
 
 const list = ref<any[]>([])
+const page = ref(1)
+const total = ref(0)
+const loading = ref(false)
+const pageSize = 10
 
-onMounted(async () => {
-  try {
-    const res: any = await getMyCheckins(1, 50)
-    list.value = res.list || []
-  } catch (e) {}
+const noMore = computed(() => list.value.length >= total.value)
+
+onMounted(() => {
+  loadData()
 })
+
+onPullDownRefresh(async () => {
+  await refreshData()
+  uni.stopPullDownRefresh()
+})
+
+onReachBottom(() => {
+  loadMore()
+})
+
+async function loadData() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const res: any = await getMyCheckins(1, pageSize)
+    list.value = res.list || []
+    total.value = res.total || 0
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+async function refreshData() {
+  page.value = 1
+  loading.value = true
+  try {
+    const res: any = await getMyCheckins(1, pageSize)
+    list.value = res.list || []
+    total.value = res.total || 0
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+async function loadMore() {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const nextPage = page.value + 1
+    const res: any = await getMyCheckins(nextPage, pageSize)
+    list.value.push(...(res.list || []))
+    total.value = res.total || 0
+    page.value = nextPage
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
 
 function formatTime(ts: string) {
   if (!ts) return ''
@@ -91,5 +151,11 @@ function goDetail(id: string) {
   text-align: center;
   padding: 100rpx;
   color: #999;
+}
+.loading-tip {
+  text-align: center;
+  padding: 30rpx;
+  color: #999;
+  font-size: 24rpx;
 }
 </style>

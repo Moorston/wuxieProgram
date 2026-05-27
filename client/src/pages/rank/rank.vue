@@ -23,6 +23,13 @@
       </view>
     </view>
 
+    <view v-if="loading" class="loading-tip">
+      <text>加载中...</text>
+    </view>
+    <view v-else-if="noMore && rankList.length > 0" class="loading-tip">
+      <text>没有更多了</text>
+    </view>
+
     <view class="my-rank" v-if="myRank">
       <text>我的排名: 第{{ myRank.rank }}名</text>
       <text>积分: {{ myRank.score }}</text>
@@ -31,7 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getRankList, getMyRank } from '../../api'
 
 const currentPeriod = ref('all')
@@ -43,18 +51,71 @@ const periods = [
 
 const rankList = ref<any[]>([])
 const myRank = ref<any>(null)
+const page = ref(1)
+const total = ref(0)
+const loading = ref(false)
+const pageSize = 20
+
+const noMore = computed(() => rankList.value.length >= total.value)
 
 onMounted(() => {
   loadRank()
 })
 
+onPullDownRefresh(async () => {
+  await refreshRank()
+  uni.stopPullDownRefresh()
+})
+
+onReachBottom(() => {
+  loadMore()
+})
+
 async function loadRank() {
+  if (loading.value) return
+  loading.value = true
   try {
-    rankList.value = (await getRankList(currentPeriod.value)) as any[]
-  } catch (e) {}
+    const res: any = await getRankList(currentPeriod.value, 1, pageSize)
+    rankList.value = res.list || res || []
+    total.value = res.total || rankList.value.length
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
   try {
     myRank.value = await getMyRank(currentPeriod.value)
   } catch (e) {}
+}
+
+async function refreshRank() {
+  page.value = 1
+  loading.value = true
+  try {
+    const res: any = await getRankList(currentPeriod.value, 1, pageSize)
+    rankList.value = res.list || res || []
+    total.value = res.total || rankList.value.length
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+  try {
+    myRank.value = await getMyRank(currentPeriod.value)
+  } catch (e) {}
+}
+
+async function loadMore() {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const nextPage = page.value + 1
+    const res: any = await getRankList(currentPeriod.value, nextPage, pageSize)
+    const items = res.list || res || []
+    rankList.value.push(...items)
+    total.value = res.total || rankList.value.length
+    page.value = nextPage
+  } catch (e) {} finally {
+    loading.value = false
+  }
 }
 
 function changePeriod(period: string) {
@@ -126,5 +187,11 @@ function changePeriod(period: string) {
   display: flex;
   justify-content: space-between;
   font-size: 28rpx;
+}
+.loading-tip {
+  text-align: center;
+  padding: 30rpx;
+  color: #999;
+  font-size: 24rpx;
 }
 </style>

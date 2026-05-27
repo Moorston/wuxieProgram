@@ -34,4 +34,52 @@ db.createCollection('rank_cache');
 db.rank_cache.createIndex({ "period": 1, "rank": 1 });
 db.rank_cache.createIndex({ "user_id": 1, "period": 1 });
 
+// 训练计划集合
+db.createCollection('training_plans');
+db.training_plans.createIndex({ "user_id": 1, "status": 1 });
+db.training_plans.createIndex({ "user_id": 1, "created_at": -1 });
+db.training_plans.createIndex({ "group_id": 1 });
+db.training_plans.createIndex({ "start_date": 1, "end_date": 1 });
+
+// 训练模板集合
+db.createCollection('training_templates');
+db.training_templates.createIndex({ "style": 1 });
+db.training_templates.createIndex({ "category": 1 });
+db.training_templates.createIndex({ "usage_count": -1 });
+
+// 通知集合
+db.createCollection('notifications');
+db.notifications.createIndex({ "user_id": 1, "created_at": -1 });
+db.notifications.createIndex({ "user_id": 1, "is_read": 1 });
+db.notifications.createIndex({ "target_type": 1, "target_id": 1 });
+
+// 通知设置集合
+db.createCollection('notification_settings');
+db.notification_settings.createIndex({ "user_id": 1 }, { unique: true });
+
+// 感悟笔记集合
+db.createCollection('insights');
+db.insights.createIndex({ "user_id": 1, "created_at": -1 });
+db.insights.createIndex({ "user_id": 1, "tags": 1 });
+db.insights.createIndex({ "user_id": 1, "mood": 1 });
+db.insights.createIndex({ "visibility": 1, "created_at": -1 });
+
+// 感悟标签集合
+db.createCollection('insight_tags');
+db.insight_tags.createIndex({ "user_id": 1, "tag": 1 }, { unique: true });
+db.insight_tags.createIndex({ "user_id": 1, "count": -1 });
+
+// 个人资料库集合
+db.createCollection('resources');
+db.resources.createIndex({ "user_id": 1, "created_at": -1 });
+db.resources.createIndex({ "user_id": 1, "type": 1 });
+db.resources.createIndex({ "user_id": 1, "is_favorite": 1 });
+db.resources.createIndex({ "share_scope": 1, "created_at": -1 });
+db.resources.createIndex({ "tags": 1 });
+
+// 资料标签集合
+db.createCollection('resource_tags');
+db.resource_tags.createIndex({ "user_id": 1, "tag": 1 }, { unique: true });
+db.resource_tags.createIndex({ "user_id": 1, "count": -1 });
+
 print('Database initialized successfully');

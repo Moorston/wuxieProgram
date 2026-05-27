@@ -18,5 +18,7 @@ jwt:
 wx:
   app_id: "your-wx-app-id"
   secret: "your-wx-app-secret"
+  template_id: "your-subscribe-template-id"
+  remind_hour: 20
 
 media_url: "http://media-server:8081"

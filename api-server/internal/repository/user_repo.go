@@ -77,6 +77,38 @@ func (r *UserRepo) FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*
 	return users, nil
 }
 
+func (r *UserRepo) FindByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*model.User, error) {
+	cursor, err := r.coll.Find(ctx, bson.M{"group_id": groupID})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*model.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *UserRepo) FindTopByScore(ctx context.Context, limit int) ([]*model.User, error) {
+	opts := options.Find().
+		SetSort(bson.D{{Key: "score", Value: -1}}).
+		SetLimit(int64(limit))
+
+	cursor, err := r.coll.Find(ctx, bson.M{}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*model.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 func (r *UserRepo) EnsureIndexes(ctx context.Context) error {
 	_, err := r.coll.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "openid", Value: 1}},

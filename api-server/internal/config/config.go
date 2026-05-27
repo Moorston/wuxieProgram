@@ -37,8 +37,10 @@ type JWTConfig struct {
 }
 
 type WXConfig struct {
-	AppID  string `mapstructure:"app_id"`
-	Secret string `mapstructure:"secret"`
+	AppID      string `mapstructure:"app_id"`
+	Secret     string `mapstructure:"secret"`
+	TemplateID string `mapstructure:"template_id"`
+	RemindHour int    `mapstructure:"remind_hour"`
 }
 
 func Load() *Config {

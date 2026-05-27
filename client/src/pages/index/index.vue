@@ -6,6 +6,12 @@
         <text class="nickname">{{ userInfo?.nickname || '未登录' }}</text>
         <text class="score">积分: {{ userInfo?.score || 0 }}</text>
       </view>
+      <view class="bell" @tap="goNotification">
+        <text class="bell-icon">🔔</text>
+        <view v-if="unreadCount > 0" class="badge">
+          <text class="badge-text">{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
+        </view>
+      </view>
     </view>
 
     <view class="week-checkin">
@@ -34,15 +40,30 @@
         </view>
       </view>
     </view>
+
+    <view v-if="loading" class="loading-tip">
+      <text>加载中...</text>
+    </view>
+    <view v-else-if="noMore && recentList.length > 0" class="loading-tip">
+      <text>没有更多了</text>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getProfile, getCheckinList } from '../../api'
+import { ref, computed, onMounted } from 'vue'
+import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { getProfile, getCheckinList, getUnreadCount } from '../../api'
 
 const userInfo = ref<any>(null)
 const recentList = ref<any[]>([])
+const page = ref(1)
+const total = ref(0)
+const loading = ref(false)
+const pageSize = 10
+const unreadCount = ref(0)
+
+const noMore = computed(() => recentList.value.length >= total.value)
 
 const weekDays = ref([
   { label: '一', checked: false },
@@ -60,13 +81,71 @@ onMounted(async () => {
   } catch (e) {}
 
   try {
-    const res: any = await getCheckinList(1, 5)
-    recentList.value = res.list || []
+    const res: any = await getUnreadCount()
+    unreadCount.value = res.count || 0
   } catch (e) {}
+
+  await loadInitial()
 })
+
+onPullDownRefresh(async () => {
+  try {
+    userInfo.value = await getProfile()
+  } catch (e) {}
+  await refreshData()
+  uni.stopPullDownRefresh()
+})
+
+onReachBottom(() => {
+  loadMore()
+})
+
+async function loadInitial() {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const res: any = await getCheckinList(1, pageSize)
+    recentList.value = res.list || []
+    total.value = res.total || 0
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+async function refreshData() {
+  page.value = 1
+  loading.value = true
+  try {
+    const res: any = await getCheckinList(1, pageSize)
+    recentList.value = res.list || []
+    total.value = res.total || 0
+    page.value = 1
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
+
+async function loadMore() {
+  if (loading.value || noMore.value) return
+  loading.value = true
+  try {
+    const nextPage = page.value + 1
+    const res: any = await getCheckinList(nextPage, pageSize)
+    recentList.value.push(...(res.list || []))
+    total.value = res.total || 0
+    page.value = nextPage
+  } catch (e) {} finally {
+    loading.value = false
+  }
+}
 
 function goDetail(id: string) {
   uni.navigateTo({ url: `/pages/video-detail/video-detail?id=${id}` })
+}
+
+function goNotification() {
+  uni.navigateTo({ url: '/pages/notification/list' })
 }
 </script>
 
@@ -96,6 +175,30 @@ function goDetail(id: string) {
   font-size: 24rpx;
   opacity: 0.8;
   margin-top: 8rpx;
+}
+.bell {
+  position: relative;
+  padding: 10rpx;
+}
+.bell-icon {
+  font-size: 40rpx;
+}
+.badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #e54d42;
+  border-radius: 20rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+}
+.badge-text {
+  font-size: 18rpx;
+  color: #fff;
 }
 .section-title {
   font-size: 32rpx;
@@ -154,5 +257,11 @@ function goDetail(id: string) {
   color: #999;
   margin-top: 8rpx;
   display: block;
+}
+.loading-tip {
+  text-align: center;
+  padding: 30rpx;
+  color: #999;
+  font-size: 24rpx;
 }
 </style>

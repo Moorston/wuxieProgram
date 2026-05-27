@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type GroupRepo struct {
@@ -52,9 +53,16 @@ func NewRankRepo(db *mongo.Database) *RankRepo {
 
 func (r *RankRepo) GetRankList(ctx context.Context, period model.RankPeriod, page, pageSize int) ([]*model.RankEntry, error) {
 	filter := bson.M{"period": period}
-	opts := bson.D{{Key: "rank", Value: 1}}
 
-	cursor, err := r.coll.Find(ctx, filter)
+	skip := int64((page - 1) * pageSize)
+	limit := int64(pageSize)
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "rank", Value: 1}}).
+		SetSkip(skip).
+		SetLimit(limit)
+
+	cursor, err := r.coll.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}

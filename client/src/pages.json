@@ -2,11 +2,17 @@
   "pages": [
     {
       "path": "pages/index/index",
-      "style": { "navigationBarTitleText": "首页" }
+      "style": {
+        "navigationBarTitleText": "首页",
+        "enablePullDownRefresh": true
+      }
     },
     {
       "path": "pages/square/square",
-      "style": { "navigationBarTitleText": "广场" }
+      "style": {
+        "navigationBarTitleText": "广场",
+        "enablePullDownRefresh": true
+      }
     },
     {
       "path": "pages/checkin/checkin",
@@ -14,7 +20,10 @@
     },
     {
       "path": "pages/rank/rank",
-      "style": { "navigationBarTitleText": "排位" }
+      "style": {
+        "navigationBarTitleText": "排位",
+        "enablePullDownRefresh": true
+      }
     },
     {
       "path": "pages/mine/mine",
@@ -30,11 +39,134 @@
     },
     {
       "path": "pages/my-video/my-video",
-      "style": { "navigationBarTitleText": "我的视频" }
+      "style": {
+        "navigationBarTitleText": "我的视频",
+        "enablePullDownRefresh": true
+      }
     },
     {
       "path": "pages/group/group",
       "style": { "navigationBarTitleText": "考核组" }
+    },
+    {
+      "path": "pages/group/detail",
+      "style": { "navigationBarTitleText": "考核组详情" }
+    },
+    {
+      "path": "pages/training/list",
+      "style": {
+        "navigationBarTitleText": "训练计划",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/training/create",
+      "style": { "navigationBarTitleText": "创建计划" }
+    },
+    {
+      "path": "pages/training/detail",
+      "style": { "navigationBarTitleText": "计划详情" }
+    },
+    {
+      "path": "pages/training/template",
+      "style": {
+        "navigationBarTitleText": "训练模板",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/training/template-detail",
+      "style": { "navigationBarTitleText": "模板详情" }
+    },
+    {
+      "path": "pages/training/today",
+      "style": {
+        "navigationBarTitleText": "今日任务",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/training/report",
+      "style": { "navigationBarTitleText": "训练报告" }
+    },
+    {
+      "path": "pages/notification/list",
+      "style": {
+        "navigationBarTitleText": "消息通知",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/notification/settings",
+      "style": { "navigationBarTitleText": "通知设置" }
+    },
+    {
+      "path": "pages/insight/list",
+      "style": {
+        "navigationBarTitleText": "感悟笔记",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/insight/create",
+      "style": { "navigationBarTitleText": "写感悟" }
+    },
+    {
+      "path": "pages/insight/detail",
+      "style": { "navigationBarTitleText": "感悟详情" }
+    },
+    {
+      "path": "pages/insight/tags",
+      "style": { "navigationBarTitleText": "标签管理" }
+    },
+    {
+      "path": "pages/insight/mood",
+      "style": { "navigationBarTitleText": "心情统计" }
+    },
+    {
+      "path": "pages/insight/on-this-day",
+      "style": { "navigationBarTitleText": "历史今日" }
+    },
+    {
+      "path": "pages/insight/public",
+      "style": {
+        "navigationBarTitleText": "公开感悟",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/resource/list",
+      "style": {
+        "navigationBarTitleText": "个人资料库",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/resource/upload",
+      "style": { "navigationBarTitleText": "上传资料" }
+    },
+    {
+      "path": "pages/resource/detail",
+      "style": { "navigationBarTitleText": "资料详情" }
+    },
+    {
+      "path": "pages/resource/favorites",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/resource/share",
+      "style": { "navigationBarTitleText": "分享设置" }
+    },
+    {
+      "path": "pages/resource/tags",
+      "style": { "navigationBarTitleText": "资料标签" }
+    },
+    {
+      "path": "pages/resource/stats",
+      "style": { "navigationBarTitleText": "存储统计" }
     }
   ],
   "globalStyle": {

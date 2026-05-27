@@ -58,8 +58,12 @@ func (r *CheckinRepo) UpdateStatus(ctx context.Context, id primitive.ObjectID, s
 	return err
 }
 
-func (r *CheckinRepo) List(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error) {
+func (r *CheckinRepo) List(ctx context.Context, userID primitive.ObjectID, groupUserIDs []primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error) {
 	filter := bson.M{"status": model.CheckinStatusDone}
+
+	if len(groupUserIDs) > 0 {
+		filter["user_id"] = bson.M{"$in": groupUserIDs}
+	}
 
 	skip := int64((page - 1) * pageSize)
 	limit := int64(pageSize)
@@ -137,10 +141,50 @@ func (r *CheckinRepo) IncrCommentCount(ctx context.Context, id primitive.ObjectI
 	return err
 }
 
+func (r *CheckinRepo) Search(ctx context.Context, keyword string, page, pageSize int) ([]*model.Checkin, int64, error) {
+	filter := bson.M{
+		"status": model.CheckinStatusDone,
+		"description": bson.M{
+			"$regex":   keyword,
+			"$options": "i",
+		},
+	}
+
+	skip := int64((page - 1) * pageSize)
+	limit := int64(pageSize)
+
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(skip).
+		SetLimit(limit)
+
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var checkins []*model.Checkin
+	if err := cursor.All(ctx, &checkins); err != nil {
+		return nil, 0, err
+	}
+
+	return checkins, total, nil
+}
+
 func (r *CheckinRepo) EnsureIndexes(ctx context.Context) error {
 	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
 		{Keys: bson.D{{Key: "status", Value: 1}}},
 	})
 	return err
+}
+
+func (r *CheckinRepo) Aggregate(ctx context.Context, pipeline []bson.M) (mongo.Cursor, error) {
+	return r.coll.Aggregate(ctx, pipeline)
 }

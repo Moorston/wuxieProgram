@@ -78,3 +78,23 @@ func (c *Client) EnsureBuckets(ctx context.Context, buckets ...string) error {
 	}
 	return nil
 }
+
+func (c *Client) RemoveObject(ctx context.Context, bucket, objectName string) error {
+	return c.inner.RemoveObject(ctx, bucket, objectName, minio.RemoveObjectOptions{})
+}
+
+func (c *Client) ListObjects(ctx context.Context, bucket, prefix string) ([]string, int64, error) {
+	var names []string
+	var totalSize int64
+
+	objects := c.inner.ListObjects(ctx, bucket, prefix, true, nil)
+	for obj := range objects {
+		if obj.Err != nil {
+			return nil, 0, obj.Err
+		}
+		names = append(names, obj.Key)
+		totalSize += obj.Size
+	}
+
+	return names, totalSize, nil
+}
