@@ -1,0 +1,45 @@
+# 开发环境覆盖配置 (docker compose 自动合并)
+# 用于本地开发，覆盖 docker-compose.yml 中的生产配置
+
+services:
+  mongo:
+    ports:
+      - "27017:27017"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  api-server:
+    build:
+      context: ../api-server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - GIN_MODE=debug
+    volumes:
+      - ../api-server/configs:/app/configs
+      # 热重载：挂载源码目录（需要配合 air 等工具）
+      # - ../api-server:/app
+
+  media-server:
+    build:
+      context: ../media-server
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - GIN_MODE=debug
+    volumes:
+      - ../media-server/configs:/app/configs
+      - transcode-temp:/tmp/wuxie-transcode
+
+  nginx:
+    ports:
+      - "80:80"
