@@ -152,3 +152,6 @@
 - 搜索功能：按关键词搜索用户或打卡内容
 - 消息通知：收到点赞、评论、关注时及时提醒
 - 隐私设置：可设置打卡内容的可见范围，保护个人隐私
+
+<img width="1596" height="5222" alt="54538ba365f5afe4baa8ad755ae6decb" src="https://github.com/user-attachments/assets/6de0fc5f-1ac7-461f-8cac-52b5abd5275b" />
+
