@@ -161,7 +161,7 @@ async function onTapItem(item: any) {
       uni.navigateTo({ url: `/pages/training/report?id=${item.target_id}` })
     }
   } else if (item.target_type === 'group' && item.target_id) {
-    uni.navigateTo({ url: `/pages/group/group?id=${item.target_id}` })
+    uni.navigateTo({ url: `/pages/group/detail?id=${item.target_id}` })
   }
 }
 

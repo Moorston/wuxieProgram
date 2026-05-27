@@ -128,9 +128,17 @@ func (h *ResourceHandler) GetByID(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
 	res, err := h.resourceService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		response.NotFound(c, "resource not found")
+		return
+	}
+
+	if res.ShareScope != model.ShareScopePublic && res.UserID != oid {
+		response.Forbidden(c, "no access")
 		return
 	}
 

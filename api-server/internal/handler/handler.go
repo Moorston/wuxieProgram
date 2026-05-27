@@ -130,6 +130,28 @@ func (h *CheckinHandler) Prepare(c *gin.Context) {
 	response.Success(c, checkin)
 }
 
+func (h *CheckinHandler) GetByID(c *gin.Context) {
+	id, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid checkin id")
+		return
+	}
+
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
+	checkin, err := h.checkinService.GetByID(c.Request.Context(), id)
+	if err != nil {
+		response.NotFound(c, "checkin not found")
+		return
+	}
+
+	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), []primitive.ObjectID{id}, oid)
+	checkin.IsLiked = likedMap[id]
+
+	response.Success(c, checkin)
+}
+
 func (h *CheckinHandler) GetList(c *gin.Context) {
 	userID := c.GetString("user_id")
 	oid, _ := primitive.ObjectIDFromHex(userID)

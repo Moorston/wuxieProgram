@@ -192,3 +192,40 @@ func (r *InsightRepo) EnsureIndexes(ctx context.Context) error {
 	})
 	return err
 }
+
+type InsightLikeRepo struct {
+	coll *mongo.Collection
+}
+
+func NewInsightLikeRepo(db *mongo.Database) *InsightLikeRepo {
+	return &InsightLikeRepo{coll: db.Collection("insight_likes")}
+}
+
+func (r *InsightLikeRepo) Toggle(ctx context.Context, insightID, userID primitive.ObjectID) (bool, error) {
+	filter := bson.M{"insight_id": insightID, "user_id": userID}
+	count, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return false, err
+	}
+
+	if count > 0 {
+		_, err = r.coll.DeleteOne(ctx, filter)
+		return false, err
+	}
+
+	like := &model.InsightLike{
+		InsightID: insightID,
+		UserID:    userID,
+		CreatedAt: time.Now(),
+	}
+	_, err = r.coll.InsertOne(ctx, like)
+	return true, err
+}
+
+func (r *InsightLikeRepo) EnsureIndexes(ctx context.Context) error {
+	_, err := r.coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "insight_id", Value: 1}, {Key: "user_id", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+	return err
+}

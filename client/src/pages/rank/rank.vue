@@ -38,7 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getRankList, getMyRank } from '../../api'
 
@@ -58,7 +59,7 @@ const pageSize = 20
 
 const noMore = computed(() => rankList.value.length >= total.value)
 
-onMounted(() => {
+onShow(() => {
   loadRank()
 })
 

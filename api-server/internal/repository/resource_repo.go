@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -11,6 +12,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var regexSpecialChars = regexp.MustCompile(`[[\]{}()*+?.\\^$|]`)
+
+func sanitizeRegex(s string) string {
+	return regexSpecialChars.ReplaceAllString(s, `\$&`)
+}
 
 type ResourceRepo struct {
 	coll *mongo.Collection
@@ -80,10 +87,23 @@ func (r *ResourceRepo) List(ctx context.Context, userID primitive.ObjectID, resT
 		filter["tags"] = tag
 	}
 	if keyword != "" {
-		filter["$or"] = []bson.M{
-			{"title": bson.M{"$regex": keyword, "$options": "i"}},
-			{"description": bson.M{"$regex": keyword, "$options": "i"}},
-			{"tags": bson.M{"$regex": keyword, "$options": "i"}},
+		safeKeyword := sanitizeRegex(keyword)
+		keywordFilter := []bson.M{
+			{"title": bson.M{"$regex": safeKeyword, "$options": "i"}},
+			{"description": bson.M{"$regex": safeKeyword, "$options": "i"}},
+			{"tags": bson.M{"$regex": safeKeyword, "$options": "i"}},
+		}
+		if existingOr, ok := filter["$or"].([]bson.M); ok {
+			var mergedOr []bson.M
+			for _, visFilter := range existingOr {
+				for _, kwFilter := range keywordFilter {
+					mergedOr = append(mergedOr, bson.M{"$and": []bson.M{visFilter, kwFilter}})
+				}
+			}
+			delete(filter, "$or")
+			filter["$and"] = []bson.M{{"$or": existingOr}, {"$or": keywordFilter}}
+		} else {
+			filter["$or"] = keywordFilter
 		}
 	}
 

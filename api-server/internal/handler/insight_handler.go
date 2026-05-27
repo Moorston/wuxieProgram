@@ -79,9 +79,17 @@ func (h *InsightHandler) GetByID(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
 	insight, err := h.insightService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		response.NotFound(c, "insight not found")
+		return
+	}
+
+	if insight.Visibility != model.VisibilityPublic && insight.UserID != oid {
+		response.Forbidden(c, "no access")
 		return
 	}
 
@@ -249,16 +257,20 @@ func (h *InsightHandler) OnThisDay(c *gin.Context) {
 }
 
 func (h *InsightHandler) Like(c *gin.Context) {
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		response.BadRequest(c, "invalid insight id")
 		return
 	}
 
-	if err := h.insightService.Like(c.Request.Context(), id); err != nil {
+	liked, err := h.insightService.Like(c.Request.Context(), id, oid)
+	if err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	response.Success(c, nil)
+	response.Success(c, gin.H{"liked": liked})
 }

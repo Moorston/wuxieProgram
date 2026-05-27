@@ -48,3 +48,10 @@ type InsightTag struct {
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }
+
+type InsightLike struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	InsightID primitive.ObjectID `bson:"insight_id" json:"insight_id"`
+	UserID    primitive.ObjectID `bson:"user_id" json:"user_id"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+}

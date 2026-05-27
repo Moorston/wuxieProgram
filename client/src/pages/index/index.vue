@@ -51,7 +51,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getProfile, getCheckinList, getUnreadCount } from '../../api'
 
@@ -75,7 +76,7 @@ const weekDays = ref([
   { label: '日', checked: false },
 ])
 
-onMounted(async () => {
+onShow(async () => {
   try {
     userInfo.value = await getProfile()
   } catch (e) {}

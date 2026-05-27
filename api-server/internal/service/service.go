@@ -186,6 +186,20 @@ func (s *CheckinService) Delete(ctx context.Context, checkinID, userID primitive
 	return s.checkinRepo.Delete(ctx, checkinID, userID)
 }
 
+func (s *CheckinService) GetByID(ctx context.Context, id primitive.ObjectID) (*model.Checkin, error) {
+	checkin, err := s.checkinRepo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.userRepo.FindByID(ctx, checkin.UserID)
+	if err == nil {
+		checkin.User = user
+	}
+
+	return checkin, nil
+}
+
 func (s *CheckinService) Search(ctx context.Context, userID primitive.ObjectID, keyword string, page, pageSize int) ([]*model.Checkin, int64, error) {
 	checkins, total, err := s.checkinRepo.Search(ctx, keyword, page, pageSize)
 	if err != nil {

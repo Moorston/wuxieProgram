@@ -66,12 +66,12 @@ function formatFullTime(ts: string) {
 function previewImage(index: number) {
   uni.previewImage({
     urls: insight.value.images,
-    current: index,
+    current: insight.value.images[index],
   })
 }
 
 function goTagInsights(tag: string) {
-  uni.redirectTo({ url: `/pages/insight/list?tag=${encodeURIComponent(tag)}` })
+  uni.navigateTo({ url: `/pages/insight/list?tag=${encodeURIComponent(tag)}` })
 }
 
 function goCheckin() {

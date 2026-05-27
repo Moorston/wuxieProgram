@@ -41,7 +41,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getCheckinList, toggleLike, addComment, getComments } from '../../api'
+import { getCheckinDetail, toggleLike, addComment, getComments } from '../../api'
 import { mediaRequest } from '../../utils/request'
 
 const checkinId = ref('')
@@ -56,10 +56,8 @@ onLoad((options) => {
 })
 
 async function loadData() {
-  // 获取视频详情
   try {
-    const res: any = await getCheckinList(1, 100)
-    checkin.value = (res.list || []).find((c: any) => c.id === checkinId.value)
+    checkin.value = await getCheckinDetail(checkinId.value)
     if (checkin.value?.video_url) {
       const urlRes: any = await mediaRequest({
         url: `/media/url?object=${encodeURIComponent(checkin.value.video_url)}`,

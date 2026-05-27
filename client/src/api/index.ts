@@ -1,4 +1,4 @@
-import { request } from './request'
+import { request } from '../utils/request'
 
 export function wxLogin(code: string, userInfo?: any) {
   return request({
@@ -29,6 +29,10 @@ export function getCheckinList(page = 1, pageSize = 10, groupId?: string) {
   let url = `/api/checkin/list?page=${page}&page_size=${pageSize}`
   if (groupId) url += `&group_id=${groupId}`
   return request({ url })
+}
+
+export function getCheckinDetail(id: string) {
+  return request({ url: `/api/checkin/${id}` })
 }
 
 export function searchCheckinList(keyword: string, page = 1, pageSize = 10) {

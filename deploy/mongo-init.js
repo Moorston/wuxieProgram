@@ -69,6 +69,10 @@ db.createCollection('insight_tags');
 db.insight_tags.createIndex({ "user_id": 1, "tag": 1 }, { unique: true });
 db.insight_tags.createIndex({ "user_id": 1, "count": -1 });
 
+// 感悟点赞集合
+db.createCollection('insight_likes');
+db.insight_likes.createIndex({ "insight_id": 1, "user_id": 1 }, { unique: true });
+
 // 个人资料库集合
 db.createCollection('resources');
 db.resources.createIndex({ "user_id": 1, "created_at": -1 });

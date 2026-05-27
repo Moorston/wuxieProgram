@@ -11,13 +11,14 @@ import (
 )
 
 type InsightService struct {
-	insightRepo *repository.InsightRepo
-	tagRepo     *repository.InsightTagRepo
-	userRepo    *repository.UserRepo
+	insightRepo  *repository.InsightRepo
+	tagRepo      *repository.InsightTagRepo
+	likeRepo     *repository.InsightLikeRepo
+	userRepo     *repository.UserRepo
 }
 
-func NewInsightService(insightRepo *repository.InsightRepo, tagRepo *repository.InsightTagRepo, userRepo *repository.UserRepo) *InsightService {
-	return &InsightService{insightRepo: insightRepo, tagRepo: tagRepo, userRepo: userRepo}
+func NewInsightService(insightRepo *repository.InsightRepo, tagRepo *repository.InsightTagRepo, likeRepo *repository.InsightLikeRepo, userRepo *repository.UserRepo) *InsightService {
+	return &InsightService{insightRepo: insightRepo, tagRepo: tagRepo, likeRepo: likeRepo, userRepo: userRepo}
 }
 
 func (s *InsightService) Create(ctx context.Context, userID primitive.ObjectID, insight *model.Insight) error {
@@ -107,8 +108,19 @@ func (s *InsightService) GetTags(ctx context.Context, userID primitive.ObjectID)
 	return s.tagRepo.ListByUser(ctx, userID)
 }
 
-func (s *InsightService) Like(ctx context.Context, id primitive.ObjectID) error {
-	return s.insightRepo.IncrLikeCount(ctx, id, 1)
+func (s *InsightService) Like(ctx context.Context, id, userID primitive.ObjectID) (bool, error) {
+	liked, err := s.likeRepo.Toggle(ctx, id, userID)
+	if err != nil {
+		return false, err
+	}
+
+	delta := -1
+	if liked {
+		delta = 1
+	}
+	s.insightRepo.IncrLikeCount(ctx, id, delta)
+
+	return liked, nil
 }
 
 func (s *InsightService) fillUsers(ctx context.Context, insights []*model.Insight) {

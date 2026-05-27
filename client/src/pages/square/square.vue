@@ -73,7 +73,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
 import { getCheckinList, searchCheckinList, toggleLike, getProfile } from '../../api'
 
@@ -96,7 +97,7 @@ const noMore = computed(() => list.value.length >= total.value)
 const leftList = computed(() => list.value.filter((_, i) => i % 2 === 0))
 const rightList = computed(() => list.value.filter((_, i) => i % 2 === 1))
 
-onMounted(async () => {
+onShow(async () => {
   try {
     const profile: any = await getProfile()
     if (profile?.group_id) {

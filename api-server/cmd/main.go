@@ -25,7 +25,10 @@ func main() {
 	cfg := config.Load()
 
 	// 初始化日志
-	logger, _ := zap.NewProduction()
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("failed to init logger: %v", err)
+	}
 	defer logger.Sync()
 
 	// 连接MongoDB
@@ -53,6 +56,7 @@ func main() {
 	notifSettingsRepo := repository.NewNotificationSettingsRepo(db)
 	insightRepo := repository.NewInsightRepo(db)
 	insightTagRepo := repository.NewInsightTagRepo(db)
+	insightLikeRepo := repository.NewInsightLikeRepo(db)
 	resourceRepo := repository.NewResourceRepo(db)
 	resourceTagRepo := repository.NewResourceTagRepo(db)
 
@@ -60,12 +64,14 @@ func main() {
 	ctx := context.Background()
 	userRepo.EnsureIndexes(ctx)
 	checkinRepo.EnsureIndexes(ctx)
+	likeRepo.EnsureIndexes(ctx)
 	trainingRepo.EnsureIndexes(ctx)
 	templateRepo.EnsureIndexes(ctx)
 	notifRepo.EnsureIndexes(ctx)
 	notifSettingsRepo.EnsureIndexes(ctx)
 	insightRepo.EnsureIndexes(ctx)
 	insightTagRepo.EnsureIndexes(ctx)
+	insightLikeRepo.EnsureIndexes(ctx)
 	resourceRepo.EnsureIndexes(ctx)
 	resourceTagRepo.EnsureIndexes(ctx)
 
@@ -78,7 +84,7 @@ func main() {
 	rankService := service.NewRankService(rankRepo)
 	groupService := service.NewGroupService(groupRepo, userRepo)
 	trainingService := service.NewTrainingService(trainingRepo, templateRepo, notifService)
-	insightService := service.NewInsightService(insightRepo, insightTagRepo, userRepo)
+	insightService := service.NewInsightService(insightRepo, insightTagRepo, insightLikeRepo, userRepo)
 	resourceService := service.NewResourceService(resourceRepo, resourceTagRepo, userRepo)
 
 	// WX Client
@@ -129,13 +135,13 @@ func main() {
 	insightH := handler.NewInsightHandler(insightService)
 	resourceH := handler.NewResourceHandler(resourceService)
 
-	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, jwtMgr, logger)
-
 	// 设置模式
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	// 路由
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, jwtMgr, logger)
 
 	log.Printf("api-server starting on :%s", cfg.Server.Port)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {

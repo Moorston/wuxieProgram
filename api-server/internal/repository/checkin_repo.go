@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"regexp"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -11,6 +12,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var regexSpecialChars = regexp.MustCompile(`[[\]{}()*+?.\\^$|]`)
+
+func sanitizeRegex(s string) string {
+	return regexSpecialChars.ReplaceAllString(s, `\$&`)
+}
 
 type CheckinRepo struct {
 	coll *mongo.Collection
@@ -142,10 +149,11 @@ func (r *CheckinRepo) IncrCommentCount(ctx context.Context, id primitive.ObjectI
 }
 
 func (r *CheckinRepo) Search(ctx context.Context, keyword string, page, pageSize int) ([]*model.Checkin, int64, error) {
+	safeKeyword := sanitizeRegex(keyword)
 	filter := bson.M{
 		"status": model.CheckinStatusDone,
 		"description": bson.M{
-			"$regex":   keyword,
+			"$regex":   safeKeyword,
 			"$options": "i",
 		},
 	}

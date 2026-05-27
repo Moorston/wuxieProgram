@@ -36,7 +36,7 @@ export function request<T = any>(options: RequestOptions): Promise<T> {
           resolve(data.data)
         } else if (data.code === 401) {
           uni.removeStorageSync('token')
-          uni.navigateTo({ url: '/pages/login/login' })
+          uni.reLaunch({ url: '/pages/login/login' })
           reject(new Error('unauthorized'))
         } else {
           uni.showToast({ title: data.message, icon: 'none' })
@@ -55,11 +55,21 @@ const MEDIA_URL = 'http://localhost:8081'
 
 export function mediaRequest<T = any>(options: RequestOptions): Promise<T> {
   return new Promise((resolve, reject) => {
+    const token = uni.getStorageSync('token')
+    const header: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...options.header,
+    }
+
+    if (token) {
+      header['Authorization'] = `Bearer ${token}`
+    }
+
     uni.request({
       url: `${MEDIA_URL}${options.url}`,
       method: options.method || 'GET',
       data: options.data,
-      header: { 'Content-Type': 'application/json', ...options.header },
+      header,
       success: (res: any) => {
         const data = res.data as ApiResponse<T>
         if (data.code === 0) {

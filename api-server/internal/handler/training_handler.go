@@ -78,6 +78,9 @@ func (h *TrainingHandler) CreatePlan(c *gin.Context) {
 }
 
 func (h *TrainingHandler) GetPlan(c *gin.Context) {
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		response.BadRequest(c, "invalid plan id")
@@ -87,6 +90,11 @@ func (h *TrainingHandler) GetPlan(c *gin.Context) {
 	plan, err := h.trainingService.GetPlan(c.Request.Context(), id)
 	if err != nil {
 		response.NotFound(c, "plan not found")
+		return
+	}
+
+	if plan.UserID != oid {
+		response.Forbidden(c, "no access")
 		return
 	}
 
@@ -141,6 +149,12 @@ func (h *TrainingHandler) UpdatePlan(c *gin.Context) {
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		response.BadRequest(c, "invalid plan id")
+		return
+	}
+
+	plan, err := h.trainingService.GetPlan(c.Request.Context(), id)
+	if err != nil || plan.UserID != oid {
+		response.Forbidden(c, "no access")
 		return
 	}
 
@@ -203,9 +217,18 @@ type UpdateTaskReq struct {
 }
 
 func (h *TrainingHandler) UpdateTask(c *gin.Context) {
+	userID := c.GetString("user_id")
+	oid, _ := primitive.ObjectIDFromHex(userID)
+
 	planID, err := primitive.ObjectIDFromHex(c.Param("plan_id"))
 	if err != nil {
 		response.BadRequest(c, "invalid plan_id")
+		return
+	}
+
+	plan, err := h.trainingService.GetPlan(c.Request.Context(), planID)
+	if err != nil || plan.UserID != oid {
+		response.Forbidden(c, "no access")
 		return
 	}
 

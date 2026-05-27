@@ -11,7 +11,14 @@ services:
       - ./mongo-init.js:/docker-entrypoint-initdb.d/init.js
     environment:
       MONGO_INITDB_DATABASE: wuxie
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+    networks:
+      - wuxie-net
 
   redis:
     image: redis:7-alpine
@@ -20,7 +27,14 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
+    networks:
+      - wuxie-net
 
   minio:
     image: minio/minio:latest
@@ -31,10 +45,17 @@ services:
     volumes:
       - minio-data:/data
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin}
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
+    networks:
+      - wuxie-net
 
   api-server:
     build:
@@ -44,13 +65,22 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - GIN_MODE=release
     volumes:
       - ../api-server/configs:/app/configs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/auth/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
+    networks:
+      - wuxie-net
 
   media-server:
     build:
@@ -60,13 +90,25 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      - minio
-      - redis
-      - api-server
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api-server:
+        condition: service_started
+    environment:
+      - GIN_MODE=release
     volumes:
       - ../media-server/configs:/app/configs
-      - /tmp/wuxie-transcode:/tmp/wuxie-transcode
+      - transcode-temp:/tmp/wuxie-transcode
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
+    networks:
+      - wuxie-net
 
   nginx:
     image: nginx:alpine
@@ -76,13 +118,30 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - nginx-logs:/var/log/nginx
     depends_on:
-      - api-server
-      - media-server
-      - minio
+      api-server:
+        condition: service_healthy
+      media-server:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
+    networks:
+      - wuxie-net
+
+networks:
+  wuxie-net:
+    driver: bridge
 
 volumes:
   mongo-data:
   redis-data:
   minio-data:
+  transcode-temp:
+  nginx-logs:

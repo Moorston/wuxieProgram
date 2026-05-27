@@ -47,6 +47,7 @@ func Setup(
 			auth.GET("/checkin/list", checkinH.GetList)
 			auth.GET("/checkin/mine", checkinH.GetMine)
 			auth.GET("/checkin/search", checkinH.Search)
+			auth.GET("/checkin/:id", checkinH.GetByID)
 			auth.DELETE("/checkin/:id", checkinH.Delete)
 
 			// 社交

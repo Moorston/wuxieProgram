@@ -117,11 +117,26 @@ func (r *NotificationSettingsRepo) GetOrCreate(ctx context.Context, userID primi
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-	result, err := r.coll.InsertOne(ctx, settings)
+
+	filter := bson.M{"user_id": userID}
+	update := bson.M{
+		"$setOnInsert": bson.M{
+			"user_id":          userID,
+			"like_notify":      true,
+			"comment_notify":   true,
+			"plan_remind":      true,
+			"plan_remind_time": "20:00",
+			"group_notify":     true,
+			"created_at":       time.Now(),
+			"updated_at":       time.Now(),
+		},
+	}
+	opts := options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)
+
+	err = r.coll.FindOneAndUpdate(ctx, filter, update, opts).Decode(&settings)
 	if err != nil {
 		return nil, err
 	}
-	settings.ID = result.InsertedID.(primitive.ObjectID)
 	return &settings, nil
 }
 

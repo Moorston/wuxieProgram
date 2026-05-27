@@ -91,7 +91,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { getProfile, updateProfile } from '../../api'
 import { useUserStore } from '../../store/user'
 
@@ -103,7 +104,7 @@ const editForm = reactive({
   avatar: '',
 })
 
-onMounted(async () => {
+onShow(async () => {
   if (!userStore.isLoggedIn) {
     uni.navigateTo({ url: '/pages/login/login' })
     return
@@ -149,7 +150,7 @@ async function onSaveProfile() {
 
 function onLogout() {
   userStore.logout()
-  uni.navigateTo({ url: '/pages/login/login' })
+  uni.reLaunch({ url: '/pages/login/login' })
 }
 </script>
 

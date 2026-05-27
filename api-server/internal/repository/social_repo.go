@@ -112,3 +112,11 @@ func (r *LikeRepo) BatchIsLiked(ctx context.Context, checkinIDs []primitive.Obje
 	}
 	return result, nil
 }
+
+func (r *LikeRepo) EnsureIndexes(ctx context.Context) error {
+	_, err := r.coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "checkin_id", Value: 1}, {Key: "user_id", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+	return err
+}
