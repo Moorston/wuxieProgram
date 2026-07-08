@@ -15,7 +15,7 @@
         <view class="plan-header">
           <text class="plan-title">{{ plan.title }}</text>
           <text class="plan-status" :class="'status-' + plan.status">
-            {{ statusMap[plan.status] }}
+            {{ getStatusLabel(plan.status) }}
           </text>
         </view>
         <text class="plan-desc">{{ plan.description || '暂无描述' }}</text>
@@ -64,6 +64,8 @@ const statusMap: Record<number, string> = {
   3: '已终止',
 }
 
+const getStatusLabel = (status: number) => statusMap[status] || '未知状态'
+
 const plans = ref<any[]>([])
 const page = ref(1)
 const total = ref(0)
@@ -83,42 +85,46 @@ onReachBottom(() => {
   loadMore()
 })
 
-async function loadData() {
+async function loadData(resetPage = true) {
   if (loading.value) return
   loading.value = true
   try {
-    const res: any = await listTrainingPlans(1, pageSize, currentTab.value || undefined)
-    plans.value = res.list || []
+    const currentPage = resetPage ? 1 : page.value
+    const res: any = await listTrainingPlans(currentPage, pageSize, currentTab.value || undefined)
+    if (resetPage) {
+      plans.value = res.list || []
+    } else {
+      plans.value.push(...(res.list || []))
+    }
     total.value = res.total || 0
-    page.value = 1
-  } catch (e) {} finally {
+    if (resetPage) {
+      page.value = 1
+    }
+  } catch (e) {
+    uni.showToast({ title: resetPage ? '加载失败，请重试' : '加载更多失败', icon: 'none' })
+    console.error('Failed to load training plans:', e)
+  } finally {
     loading.value = false
   }
 }
 
 async function refreshData() {
-  page.value = 1
-  loading.value = true
-  try {
-    const res: any = await listTrainingPlans(1, pageSize, currentTab.value || undefined)
-    plans.value = res.list || []
-    total.value = res.total || 0
-    page.value = 1
-  } catch (e) {} finally {
-    loading.value = false
-  }
+  await loadData(true)
 }
 
 async function loadMore() {
   if (loading.value || plans.value.length >= total.value) return
+  const nextPage = page.value + 1
   loading.value = true
   try {
-    const nextPage = page.value + 1
     const res: any = await listTrainingPlans(nextPage, pageSize, currentTab.value || undefined)
     plans.value.push(...(res.list || []))
     total.value = res.total || 0
     page.value = nextPage
-  } catch (e) {} finally {
+  } catch (e) {
+    uni.showToast({ title: '加载更多失败', icon: 'none' })
+    console.error('Failed to load more training plans:', e)
+  } finally {
     loading.value = false
   }
 }

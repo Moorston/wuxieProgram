@@ -12,7 +12,8 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	WX       WXConfig       `mapstructure:"wx"`
-	MediaURL string         `mapstructure:"media_url"`
+	MediaURL    string         `mapstructure:"media_url"`
+	MediaSecret string         `mapstructure:"media_secret"`
 }
 
 type ServerConfig struct {

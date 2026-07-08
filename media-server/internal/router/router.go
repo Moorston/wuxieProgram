@@ -2,20 +2,24 @@ package router
 
 import (
 	"wuxie-media/internal/handler"
+	"wuxie-media/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(uploadH *handler.UploadHandler, mediaH *handler.MediaHandler) *gin.Engine {
+func Setup(uploadH *handler.UploadHandler, mediaH *handler.MediaHandler, apiSecret string) *gin.Engine {
 	r := gin.Default()
 
+	// 公开路由 - 无需认证
 	r.GET("/health", uploadH.Health)
 
-	media := r.Group("/media")
+	// 受保护路由 - 需要 API 密钥认证
+	protected := r.Group("/media")
+	protected.Use(middleware.APISecretAuth(apiSecret))
 	{
-		media.GET("/upload/presign", uploadH.Presign)
-		media.POST("/upload/callback", uploadH.UploadCallback)
-		media.GET("/url", mediaH.GetURL)
+		protected.GET("/upload/presign", uploadH.Presign)
+		protected.POST("/upload/callback", uploadH.UploadCallback)
+		protected.GET("/url", mediaH.GetURL)
 	}
 
 	return r

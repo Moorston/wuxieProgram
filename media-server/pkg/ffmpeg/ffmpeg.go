@@ -2,6 +2,7 @@ package ffmpeg
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -31,24 +32,64 @@ func Probe(ctx context.Context, binary, inputPath string) (*ProbeResult, error) 
 		return probeWithFFmpeg(ctx, binary, inputPath)
 	}
 
-	_ = output
-	// 简化解析，返回默认值
-	return &ProbeResult{Duration: 0}, nil
+	var probeData struct {
+		Format struct {
+			Duration string `json:"duration"`
+			BitRate  string `json:"bit_rate"`
+		} `json:"format"`
+		Streams []struct {
+			Width     int    `json:"width"`
+			Height    int    `json:"height"`
+			CodecType string `json:"codec_type"`
+		} `json:"streams"`
+	}
+
+	if err := json.Unmarshal(output, &probeData); err != nil {
+		return probeWithFFmpeg(ctx, binary, inputPath)
+	}
+
+	result := &ProbeResult{}
+	if dur, err := strconv.ParseFloat(probeData.Format.Duration, 64); err == nil {
+		result.Duration = dur
+	}
+	if br, err := strconv.Atoi(probeData.Format.BitRate); err == nil {
+		result.Bitrate = br
+	}
+
+	for _, stream := range probeData.Streams {
+		if stream.CodecType == "video" {
+			result.Width = stream.Width
+			result.Height = stream.Height
+			break
+		}
+	}
+
+	return result, nil
 }
 
 func probeWithFFmpeg(ctx context.Context, binary, inputPath string) (*ProbeResult, error) {
 	args := []string{"-i", inputPath}
 	cmd := exec.CommandContext(ctx, binary, args...)
-	output, _ := cmd.CombinedOutput()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("ffmpeg probe failed: %w", err)
+	}
 
 	result := &ProbeResult{}
 	text := string(output)
 
-	// 解析 Duration
+	// 解析 Duration - 更健壮的解析逻辑
 	if idx := strings.Index(text, "Duration:"); idx != -1 {
-		durStr := text[idx+10 : idx+21]
-		durStr = strings.TrimSpace(durStr)
-		durStr = strings.TrimSuffix(durStr, ",")
+		durStart := idx + 10
+		// 找到Duration行的结尾（通常是逗号或换行）
+		durEnd := strings.IndexAny(text[durStart:], ",\n")
+		if durEnd == -1 {
+			durEnd = len(text)
+		} else {
+			durEnd += durStart
+		}
+
+		durStr := strings.TrimSpace(text[durStart:durEnd])
 		parts := strings.Split(durStr, ":")
 		if len(parts) == 3 {
 			h, _ := strconv.ParseFloat(parts[0], 64)

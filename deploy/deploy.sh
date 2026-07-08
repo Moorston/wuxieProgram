@@ -57,6 +57,12 @@ fi
 ACTION="${1:-up}"
 MODE="${2:-dev}"
 
+# 校验 MODE 参数
+if [[ "$MODE" != "dev" && "$MODE" != "prod" ]]; then
+    print_error "无效的模式: $MODE (支持 dev 或 prod)"
+    exit 1
+fi
+
 # Docker Compose 命令
 DC="docker compose"
 
@@ -72,10 +78,9 @@ case $ACTION in
         $DC down --remove-orphans 2>/dev/null || true
 
         print_info "构建并启动服务..."
-        $DC up -d --build
+        $DC up -d --build --wait
 
-        print_info "等待服务就绪..."
-        sleep 5
+        print_info "服务已就绪"
 
         echo ""
         echo "=========================================="
@@ -90,7 +95,11 @@ case $ACTION in
         echo "  MongoDB:         localhost:27017"
         echo "  Redis:           localhost:6379"
         echo ""
-        echo "MinIO 账号: ${MINIO_USER:-minioadmin} / ${MINIO_PASSWORD:-minioadmin}"
+        if [ "$MODE" = "prod" ]; then
+            echo "MinIO 账号: 请查看 .env 文件中的配置"
+        else
+            echo "MinIO 账号: ${MINIO_USER:-minioadmin} / ${MINIO_PASSWORD:-minioadmin}"
+        fi
         echo ""
         echo "查看日志:  ./deploy.sh logs"
         echo "停止服务:  ./deploy.sh down"
@@ -128,7 +137,7 @@ case $ACTION in
         cd "$SCRIPT_DIR"
         $DC down --remove-orphans 2>/dev/null || true
         $DC build --no-cache
-        $DC up -d
+        $DC up -d --wait
         print_ok "已重建并启动"
         ;;
 

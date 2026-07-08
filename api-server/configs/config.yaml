@@ -22,3 +22,4 @@ wx:
   remind_hour: 20
 
 media_url: "http://media-server:8081"
+media_secret: "wuxie-media-secret-change-in-production"

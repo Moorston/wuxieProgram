@@ -12,6 +12,7 @@ type Config struct {
 	Redis     RedisConfig     `mapstructure:"redis"`
 	FFmpeg    FFmpegConfig    `mapstructure:"ffmpeg"`
 	APIServer string          `mapstructure:"api_server"`
+	APISecret string          `mapstructure:"api_secret"`
 }
 
 type ServerConfig struct {
@@ -51,6 +52,7 @@ func Load() *Config {
 	viper.SetDefault("minio.cover_bucket", "cover")
 	viper.SetDefault("ffmpeg.binary", "ffmpeg")
 	viper.SetDefault("ffmpeg.workers", 2)
+	viper.SetDefault("api_secret", "change-me-in-production")
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("config file not found, using defaults: %v", err)

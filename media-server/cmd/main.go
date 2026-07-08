@@ -50,7 +50,7 @@ func main() {
 	// 启动HTTP服务
 	uploadH := handler.NewUploadHandler(minioClient, cfg, rdb)
 	mediaH := handler.NewMediaHandler(minioClient, cfg)
-	r := router.Setup(uploadH, mediaH)
+	r := router.Setup(uploadH, mediaH, cfg.APISecret)
 
 	log.Printf("media-server starting on :%s", cfg.Server.Port)
 	if err := r.Run(":" + cfg.Server.Port); err != nil {
