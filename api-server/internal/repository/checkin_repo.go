@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"regexp"
+	"strings"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -17,6 +18,28 @@ var regexSpecialChars = regexp.MustCompile(`[[\]{}()*+?.\\^$|]`)
 
 func sanitizeRegex(s string) string {
 	return regexSpecialChars.ReplaceAllString(s, `\$&`)
+}
+
+// validateSearchKeyword 验证和清理搜索关键词，防止ReDoS攻击
+func validateSearchKeyword(keyword string) string {
+	// 限制关键词长度
+	if len(keyword) > 50 {
+		keyword = keyword[:50]
+	}
+
+	// 去除可能导致回溯攻击的嵌套括号
+	keyword = strings.ReplaceAll(keyword, "((", "(")
+	keyword = strings.ReplaceAll(keyword, "))", ")")
+
+	// 去除重复的特殊字符
+	for strings.Contains(keyword, "**") {
+		keyword = strings.ReplaceAll(keyword, "**", "*")
+	}
+	for strings.Contains(keyword, "++") {
+		keyword = strings.ReplaceAll(keyword, "++", "+")
+	}
+
+	return keyword
 }
 
 type CheckinRepo struct {
@@ -141,6 +164,14 @@ func (r *CheckinRepo) IncrLikeCount(ctx context.Context, id primitive.ObjectID, 
 	return err
 }
 
+// IncrLikeCountWithSession 在事务中增加点赞计数
+func (r *CheckinRepo) IncrLikeCountWithSession(sessCtx mongo.SessionContext, id primitive.ObjectID, delta int) error {
+	_, err := r.coll.UpdateOne(sessCtx, bson.M{"_id": id}, bson.M{
+		"$inc": bson.M{"like_count": delta},
+	})
+	return err
+}
+
 func (r *CheckinRepo) IncrCommentCount(ctx context.Context, id primitive.ObjectID) error {
 	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
 		"$inc": bson.M{"comment_count": 1},
@@ -148,7 +179,18 @@ func (r *CheckinRepo) IncrCommentCount(ctx context.Context, id primitive.ObjectI
 	return err
 }
 
+// IncrCommentCountWithSession 在事务中增加评论计数
+func (r *CheckinRepo) IncrCommentCountWithSession(sessCtx mongo.SessionContext, id primitive.ObjectID) error {
+	_, err := r.coll.UpdateOne(sessCtx, bson.M{"_id": id}, bson.M{
+		"$inc": bson.M{"comment_count": 1},
+	})
+	return err
+}
+
 func (r *CheckinRepo) Search(ctx context.Context, keyword string, page, pageSize int) ([]*model.Checkin, int64, error) {
+	// 使用验证函数清理和限制关键词
+	keyword = validateSearchKeyword(keyword)
+
 	safeKeyword := sanitizeRegex(keyword)
 	filter := bson.M{
 		"status": model.CheckinStatusDone,

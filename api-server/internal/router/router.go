@@ -1,6 +1,10 @@
 package router
 
 import (
+	"net/http"
+	"time"
+
+	"wuxie-api/internal/config"
 	"wuxie-api/internal/handler"
 	"wuxie-api/internal/middleware"
 	"wuxie-api/pkg/jwt"
@@ -22,6 +26,7 @@ func Setup(
 	resourceH *handler.ResourceHandler,
 	jwtMgr *jwt.JWTManager,
 	logger *zap.Logger,
+	cfg *config.Config,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -29,6 +34,14 @@ func Setup(
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.RequestID())
 	r.Use(gin.Recovery())
+
+	// 健康检查端点（不需要认证）
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "healthy",
+			"time":   time.Now().Format(time.RFC3339),
+		})
+	})
 
 	api := r.Group("/api")
 	{
@@ -113,8 +126,9 @@ func Setup(
 			auth.POST("/resource/:id/favorite", resourceH.ToggleFavorite)
 		}
 
-		// 内部接口（media-server回调）
+		// 内部接口（media-server回调），需要内部API密钥认证
 		internal := api.Group("/internal")
+		internal.Use(middleware.InternalAuth(cfg.MediaSecret))
 		{
 			internal.POST("/transcode/done", checkinH.TranscodeCallback)
 		}

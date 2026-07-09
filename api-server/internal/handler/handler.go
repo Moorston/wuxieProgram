@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strconv"
 
 	"wuxie-api/internal/model"
@@ -35,7 +36,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	token, user, err := h.authService.WXLogin(c.Request.Context(), req.Code, req.Nickname, req.Avatar, req.Gender)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -90,7 +92,8 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	if err := h.userService.UpdateProfile(c.Request.Context(), oid, req.Nickname, req.Avatar); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -119,11 +122,15 @@ func (h *CheckinHandler) Prepare(c *gin.Context) {
 	}
 
 	var req PrepareReq
-	c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid params")
+		return
+	}
 
 	checkin, err := h.checkinService.Prepare(c.Request.Context(), oid, req.Description)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -137,8 +144,10 @@ func (h *CheckinHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	checkin, err := h.checkinService.GetByID(c.Request.Context(), id)
 	if err != nil {
@@ -153,8 +162,10 @@ func (h *CheckinHandler) GetByID(c *gin.Context) {
 }
 
 func (h *CheckinHandler) GetList(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
@@ -174,7 +185,8 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 
 	checkins, total, err := h.checkinService.GetList(c.Request.Context(), oid, groupID, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -184,8 +196,8 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 		checkinIDs[i] = ci.ID
 	}
 	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
-	for _, ci := range checkins {
-		ci.IsLiked = likedMap[ci.ID]
+	for i := range checkins {
+		checkins[i].IsLiked = likedMap[checkins[i].ID]
 	}
 
 	response.Success(c, gin.H{
@@ -197,15 +209,18 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 }
 
 func (h *CheckinHandler) GetMine(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 
 	checkins, total, err := h.checkinService.GetMine(c.Request.Context(), oid, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -216,8 +231,10 @@ func (h *CheckinHandler) GetMine(c *gin.Context) {
 }
 
 func (h *CheckinHandler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	checkinID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -226,7 +243,8 @@ func (h *CheckinHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.checkinService.Delete(c.Request.Context(), checkinID, oid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -234,8 +252,10 @@ func (h *CheckinHandler) Delete(c *gin.Context) {
 }
 
 func (h *CheckinHandler) Search(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	keyword := c.Query("q")
 	if keyword == "" {
@@ -254,7 +274,8 @@ func (h *CheckinHandler) Search(c *gin.Context) {
 
 	checkins, total, err := h.checkinService.Search(c.Request.Context(), oid, keyword, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -263,8 +284,8 @@ func (h *CheckinHandler) Search(c *gin.Context) {
 		checkinIDs[i] = ci.ID
 	}
 	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
-	for _, ci := range checkins {
-		ci.IsLiked = likedMap[ci.ID]
+	for i := range checkins {
+		checkins[i].IsLiked = likedMap[checkins[i].ID]
 	}
 
 	response.Success(c, gin.H{
@@ -284,8 +305,10 @@ func NewSocialHandler(socialService *service.SocialService) *SocialHandler {
 }
 
 func (h *SocialHandler) ToggleLike(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	checkinID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -295,7 +318,8 @@ func (h *SocialHandler) ToggleLike(c *gin.Context) {
 
 	liked, err := h.socialService.ToggleLike(c.Request.Context(), checkinID, oid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -303,12 +327,14 @@ func (h *SocialHandler) ToggleLike(c *gin.Context) {
 }
 
 type CommentReq struct {
-	Content string `json:"content" binding:"required"`
+	Content string `json:"content" binding:"required,min=1,max=500"`
 }
 
 func (h *SocialHandler) AddComment(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	checkinID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -324,7 +350,8 @@ func (h *SocialHandler) AddComment(c *gin.Context) {
 
 	comment, err := h.socialService.AddComment(c.Request.Context(), checkinID, oid, req.Content)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -343,7 +370,8 @@ func (h *SocialHandler) GetComments(c *gin.Context) {
 
 	comments, total, err := h.socialService.GetComments(c.Request.Context(), checkinID, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -368,7 +396,8 @@ func (h *RankHandler) GetRankList(c *gin.Context) {
 
 	entries, err := h.rankService.GetRankList(c.Request.Context(), period, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -376,8 +405,10 @@ func (h *RankHandler) GetRankList(c *gin.Context) {
 }
 
 func (h *RankHandler) GetMyRank(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	period := model.RankPeriod(c.DefaultQuery("period", "all"))
 
@@ -401,7 +432,8 @@ func NewGroupHandler(groupService *service.GroupService) *GroupHandler {
 func (h *GroupHandler) List(c *gin.Context) {
 	groups, err := h.groupService.List(c.Request.Context())
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -446,7 +478,8 @@ func (h *CheckinHandler) TranscodeCallback(c *gin.Context) {
 	}
 
 	if err := h.checkinService.Callback(c.Request.Context(), checkinID, req.VideoURL, req.CoverURL, req.Duration); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"wuxie-api/internal/config"
@@ -48,9 +49,24 @@ func NewCronService(
 
 func (s *CronService) RefreshAllRanks(ctx context.Context) {
 	log.Println("[cron] refreshing all ranks...")
-	s.refreshDayRank(ctx)
-	s.refreshWeekRank(ctx)
-	s.refreshAllRank(ctx)
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		s.refreshDayRank(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		s.refreshWeekRank(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		s.refreshAllRank(ctx)
+	}()
+
+	wg.Wait()
 	log.Println("[cron] rank refresh done")
 }
 
@@ -107,7 +123,9 @@ func (s *CronService) SendTrainingReminders(ctx context.Context) {
 			TargetID:   plan.ID,
 			IsRead:     false,
 		}
-		s.notifRepo.Create(ctx, notif)
+		if err := s.notifRepo.Create(ctx, notif); err != nil {
+			log.Printf("[cron] create notification failed for plan %s: %v", plan.ID.Hex(), err)
+		}
 
 		user, err := s.userRepo.FindByID(ctx, plan.UserID)
 		if err != nil || user == nil {

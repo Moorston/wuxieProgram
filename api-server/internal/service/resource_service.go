@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -32,6 +33,7 @@ func (s *ResourceService) Create(ctx context.Context, userID primitive.ObjectID,
 		res.ShareScope = model.ShareScopePrivate
 	}
 
+	// 第一阶段：预检查配额（乐观检查，可能存在竞态）
 	stats, _ := s.resourceRepo.GetUserStats(ctx, userID)
 	if stats != nil && stats.TotalSize+res.FileSize > stats.Quota {
 		return fmt.Errorf("存储空间不足，已用 %.1f%%", stats.UsagePercent)
@@ -41,8 +43,22 @@ func (s *ResourceService) Create(ctx context.Context, userID primitive.ObjectID,
 		return err
 	}
 
+	// 第二阶段：创建后再验证配额，防止并发写入导致超配额
+	if stats != nil {
+		newStats, err := s.resourceRepo.GetUserStats(ctx, userID)
+		if err == nil && newStats.TotalSize > newStats.Quota {
+			// 超出配额，回滚：删除刚创建的资源
+			if delErr := s.resourceRepo.Delete(ctx, res.ID); delErr != nil {
+				log.Printf("CRITICAL: failed to rollback resource %s after quota exceeded: %v\n", res.ID.Hex(), delErr)
+			}
+			return fmt.Errorf("存储空间不足，并发写入超出配额")
+		}
+	}
+
 	if len(res.Tags) > 0 {
-		s.tagRepo.UpsertTags(ctx, userID, res.Tags)
+		if err := s.tagRepo.UpsertTags(ctx, userID, res.Tags); err != nil {
+			log.Printf("warning: upsert resource tags failed: %v\n", err)
+		}
 	}
 
 	return nil
@@ -58,9 +74,19 @@ func (s *ResourceService) Update(ctx context.Context, id, userID primitive.Objec
 		return err
 	}
 
-	if tags, ok := update["tags"].([]string); ok {
-		s.tagRepo.DecrTags(ctx, userID, res.Tags)
-		s.tagRepo.UpsertTags(ctx, userID, tags)
+	// 验证资源所有权
+	if res.UserID != userID {
+		return fmt.Errorf("access denied: not resource owner")
+	}
+
+	// 处理JSON反序列化后的tags类型（可能是[]interface{}而非[]string）
+	if tags := extractTags(update["tags"]); tags != nil {
+		if err := s.tagRepo.DecrTags(ctx, userID, res.Tags); err != nil {
+			log.Printf("warning: decr resource tags failed: %v\n", err)
+		}
+		if err := s.tagRepo.UpsertTags(ctx, userID, tags); err != nil {
+			log.Printf("warning: upsert resource tags failed: %v\n", err)
+		}
 	}
 
 	return s.resourceRepo.Update(ctx, id, update)
@@ -72,8 +98,15 @@ func (s *ResourceService) Delete(ctx context.Context, id, userID primitive.Objec
 		return err
 	}
 
+	// 验证资源所有权
+	if res.UserID != userID {
+		return fmt.Errorf("access denied: not resource owner")
+	}
+
 	if len(res.Tags) > 0 {
-		s.tagRepo.DecrTags(ctx, userID, res.Tags)
+		if err := s.tagRepo.DecrTags(ctx, userID, res.Tags); err != nil {
+			log.Printf("warning: decr resource tags failed: %v\n", err)
+		}
 	}
 
 	return s.resourceRepo.Delete(ctx, id)
@@ -99,8 +132,8 @@ func (s *ResourceService) ListFavorites(ctx context.Context, userID primitive.Ob
 	return resources, total, nil
 }
 
-func (s *ResourceService) ToggleFavorite(ctx context.Context, id primitive.ObjectID) (bool, error) {
-	return s.resourceRepo.ToggleFavorite(ctx, id)
+func (s *ResourceService) ToggleFavorite(ctx context.Context, id, userID primitive.ObjectID) (bool, error) {
+	return s.resourceRepo.ToggleFavorite(ctx, id, userID)
 }
 
 func (s *ResourceService) GetStats(ctx context.Context, userID primitive.ObjectID) (*model.ResourceStats, error) {

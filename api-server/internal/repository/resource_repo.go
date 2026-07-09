@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"regexp"
+	"fmt"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -12,12 +12,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-var regexSpecialChars = regexp.MustCompile(`[[\]{}()*+?.\\^$|]`)
-
-func sanitizeRegex(s string) string {
-	return regexSpecialChars.ReplaceAllString(s, `\$&`)
-}
 
 type ResourceRepo struct {
 	coll *mongo.Collection
@@ -141,18 +135,27 @@ func (r *ResourceRepo) List(ctx context.Context, userID primitive.ObjectID, resT
 	return resources, total, nil
 }
 
-func (r *ResourceRepo) ToggleFavorite(ctx context.Context, id primitive.ObjectID) (bool, error) {
+func (r *ResourceRepo) ToggleFavorite(ctx context.Context, id, userID primitive.ObjectID) (bool, error) {
+	// 使用 findOneAndUpdate 聚合管道原子性切换收藏状态，同时验证所有权
+	filter := bson.M{"_id": id, "user_id": userID}
+	update := bson.A{
+		bson.M{"$set": bson.M{
+			"is_favorite": bson.M{"$not": "$is_favorite"},
+			"updated_at":  time.Now(),
+		}},
+	}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
 	var res model.Resource
-	err := r.coll.FindOne(ctx, bson.M{"_id": id}).Decode(&res)
+	err := r.coll.FindOneAndUpdate(ctx, filter, update, opts).Decode(&res)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return false, fmt.Errorf("resource not found or access denied")
+		}
 		return false, err
 	}
 
-	newFav := !res.IsFavorite
-	_, err = r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
-		"$set": bson.M{"is_favorite": newFav, "updated_at": time.Now()},
-	})
-	return newFav, err
+	return res.IsFavorite, nil
 }
 
 func (r *ResourceRepo) ListFavorites(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Resource, int64, error) {

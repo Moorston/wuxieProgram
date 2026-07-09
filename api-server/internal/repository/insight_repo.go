@@ -120,6 +120,12 @@ func (r *InsightRepo) ListPublic(ctx context.Context, page, pageSize int) ([]*mo
 func (r *InsightRepo) OnThisDay(ctx context.Context, userID primitive.ObjectID, month, day int) ([]*model.Insight, error) {
 	filter := bson.M{
 		"user_id": userID,
+		"$expr": bson.M{
+			"$and": []bson.M{
+				{"$eq": []interface{}{bson.M{"$month": "$created_at"}, month}},
+				{"$eq": []interface{}{bson.M{"$dayOfMonth": "$created_at"}, day}},
+			},
+		},
 	}
 
 	cursor, err := r.coll.Find(ctx, filter)
@@ -128,16 +134,9 @@ func (r *InsightRepo) OnThisDay(ctx context.Context, userID primitive.ObjectID, 
 	}
 	defer cursor.Close(ctx)
 
-	var all []*model.Insight
-	if err := cursor.All(ctx, &all); err != nil {
-		return nil, err
-	}
-
 	var result []*model.Insight
-	for _, ins := range all {
-		if ins.CreatedAt.Month() == time.Month(month) && ins.CreatedAt.Day() == day {
-			result = append(result, ins)
-		}
+	if err := cursor.All(ctx, &result); err != nil {
+		return nil, err
 	}
 
 	return result, nil
@@ -183,6 +182,19 @@ func (r *InsightRepo) IncrLikeCount(ctx context.Context, id primitive.ObjectID, 
 	return err
 }
 
+// StartSession 启动MongoDB会话用于事务
+func (r *InsightRepo) StartSession() (mongo.Session, error) {
+	return r.coll.Database().Client().StartSession()
+}
+
+// IncrLikeCountWithSession 在事务中增加点赞计数
+func (r *InsightRepo) IncrLikeCountWithSession(sessCtx mongo.SessionContext, id primitive.ObjectID, delta int) error {
+	_, err := r.coll.UpdateOne(sessCtx, bson.M{"_id": id}, bson.M{
+		"$inc": bson.M{"like_count": delta},
+	})
+	return err
+}
+
 func (r *InsightRepo) EnsureIndexes(ctx context.Context) error {
 	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}}},
@@ -219,6 +231,29 @@ func (r *InsightLikeRepo) Toggle(ctx context.Context, insightID, userID primitiv
 		CreatedAt: time.Now(),
 	}
 	_, err = r.coll.InsertOne(ctx, like)
+	return true, err
+}
+
+// ToggleWithSession 在事务中切换点赞状态
+func (r *InsightLikeRepo) ToggleWithSession(sessCtx mongo.SessionContext, insightID, userID primitive.ObjectID) (bool, error) {
+	filter := bson.M{"insight_id": insightID, "user_id": userID}
+
+	count, err := r.coll.CountDocuments(sessCtx, filter)
+	if err != nil {
+		return false, err
+	}
+
+	if count > 0 {
+		_, err = r.coll.DeleteOne(sessCtx, filter)
+		return false, err
+	}
+
+	like := &model.InsightLike{
+		InsightID: insightID,
+		UserID:    userID,
+		CreatedAt: time.Now(),
+	}
+	_, err = r.coll.InsertOne(sessCtx, like)
 	return true, err
 }
 

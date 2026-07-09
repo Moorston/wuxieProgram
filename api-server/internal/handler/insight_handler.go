@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strconv"
 
 	"wuxie-api/internal/model"
@@ -31,10 +32,8 @@ type CreateInsightReq struct {
 }
 
 func (h *InsightHandler) Create(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		response.BadRequest(c, "invalid user id")
+	oid, ok := getUserID(c)
+	if !ok {
 		return
 	}
 
@@ -65,7 +64,8 @@ func (h *InsightHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.insightService.Create(c.Request.Context(), oid, insight); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -79,8 +79,10 @@ func (h *InsightHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	insight, err := h.insightService.GetByID(c.Request.Context(), id)
 	if err != nil {
@@ -97,8 +99,10 @@ func (h *InsightHandler) GetByID(c *gin.Context) {
 }
 
 func (h *InsightHandler) List(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	tag := c.Query("tag")
 	mood := c.Query("mood")
@@ -113,7 +117,8 @@ func (h *InsightHandler) List(c *gin.Context) {
 
 	insights, total, err := h.insightService.List(c.Request.Context(), oid, tag, mood, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -135,7 +140,8 @@ func (h *InsightHandler) ListPublic(c *gin.Context) {
 
 	insights, total, err := h.insightService.ListPublic(c.Request.Context(), page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -154,8 +160,10 @@ type UpdateInsightReq struct {
 }
 
 func (h *InsightHandler) Update(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -187,7 +195,8 @@ func (h *InsightHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.insightService.Update(c.Request.Context(), id, uid, update); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -195,8 +204,10 @@ func (h *InsightHandler) Update(c *gin.Context) {
 }
 
 func (h *InsightHandler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -205,7 +216,8 @@ func (h *InsightHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.insightService.Delete(c.Request.Context(), id, uid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -213,12 +225,15 @@ func (h *InsightHandler) Delete(c *gin.Context) {
 }
 
 func (h *InsightHandler) GetTags(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	tags, err := h.insightService.GetTags(c.Request.Context(), uid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -226,8 +241,10 @@ func (h *InsightHandler) GetTags(c *gin.Context) {
 }
 
 func (h *InsightHandler) MoodStats(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
 	if days < 1 {
@@ -236,7 +253,8 @@ func (h *InsightHandler) MoodStats(c *gin.Context) {
 
 	stats, err := h.insightService.MoodStats(c.Request.Context(), uid, days)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -244,12 +262,15 @@ func (h *InsightHandler) MoodStats(c *gin.Context) {
 }
 
 func (h *InsightHandler) OnThisDay(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	insights, err := h.insightService.OnThisDay(c.Request.Context(), uid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -257,8 +278,10 @@ func (h *InsightHandler) OnThisDay(c *gin.Context) {
 }
 
 func (h *InsightHandler) Like(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -268,7 +291,8 @@ func (h *InsightHandler) Like(c *gin.Context) {
 
 	liked, err := h.insightService.Like(c.Request.Context(), id, oid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 

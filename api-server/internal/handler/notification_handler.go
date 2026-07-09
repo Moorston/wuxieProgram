@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strconv"
 
 	"wuxie-api/internal/service"
@@ -19,8 +20,10 @@ func NewNotificationHandler(notifService *service.NotificationService) *Notifica
 }
 
 func (h *NotificationHandler) List(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -33,7 +36,8 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 	notifications, total, err := h.notifService.List(c.Request.Context(), oid, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -44,12 +48,15 @@ func (h *NotificationHandler) List(c *gin.Context) {
 }
 
 func (h *NotificationHandler) UnreadCount(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	count, err := h.notifService.UnreadCount(c.Request.Context(), oid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -57,8 +64,10 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 }
 
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -67,7 +76,8 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	}
 
 	if err := h.notifService.MarkRead(c.Request.Context(), id, uid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -75,11 +85,14 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 }
 
 func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	if err := h.notifService.MarkAllRead(c.Request.Context(), uid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -87,8 +100,10 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 }
 
 func (h *NotificationHandler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -97,7 +112,8 @@ func (h *NotificationHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.notifService.Delete(c.Request.Context(), id, uid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -105,12 +121,15 @@ func (h *NotificationHandler) Delete(c *gin.Context) {
 }
 
 func (h *NotificationHandler) GetSettings(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	settings, err := h.notifService.GetSettings(c.Request.Context(), uid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -126,8 +145,10 @@ type UpdateSettingsReq struct {
 }
 
 func (h *NotificationHandler) UpdateSettings(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	var req UpdateSettingsReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -138,7 +159,8 @@ func (h *NotificationHandler) UpdateSettings(c *gin.Context) {
 	if err := h.notifService.UpdateSettings(c.Request.Context(), uid,
 		req.LikeNotify, req.CommentNotify, req.PlanRemind, req.GroupNotify, req.PlanRemindTime,
 	); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 

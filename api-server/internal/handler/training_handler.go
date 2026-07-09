@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strconv"
 	"time"
 
@@ -30,10 +31,8 @@ type CreatePlanReq struct {
 }
 
 func (h *TrainingHandler) CreatePlan(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		response.BadRequest(c, "invalid user id")
+	oid, ok := getUserID(c)
+	if !ok {
 		return
 	}
 
@@ -63,14 +62,14 @@ func (h *TrainingHandler) CreatePlan(c *gin.Context) {
 	}
 
 	if req.GroupID != "" {
-		groupID, err := primitive.ObjectIDFromHex(req.GroupID)
-		if err == nil {
-			plan.GroupID = groupID
+		if id, err := primitive.ObjectIDFromHex(req.GroupID); err == nil {
+			plan.GroupID = id
 		}
 	}
 
 	if err := h.trainingService.CreatePlan(c.Request.Context(), oid, plan); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -78,12 +77,13 @@ func (h *TrainingHandler) CreatePlan(c *gin.Context) {
 }
 
 func (h *TrainingHandler) GetPlan(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid plan id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
@@ -102,8 +102,10 @@ func (h *TrainingHandler) GetPlan(c *gin.Context) {
 }
 
 func (h *TrainingHandler) ListPlans(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
@@ -132,7 +134,8 @@ func (h *TrainingHandler) ListPlans(c *gin.Context) {
 
 	plans, total, err := h.trainingService.ListPlans(c.Request.Context(), oid, status, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -143,12 +146,13 @@ func (h *TrainingHandler) ListPlans(c *gin.Context) {
 }
 
 func (h *TrainingHandler) UpdatePlan(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid plan id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
@@ -173,7 +177,8 @@ func (h *TrainingHandler) UpdatePlan(c *gin.Context) {
 	}
 
 	if err := h.trainingService.UpdatePlan(c.Request.Context(), id, oid, update); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -181,17 +186,19 @@ func (h *TrainingHandler) UpdatePlan(c *gin.Context) {
 }
 
 func (h *TrainingHandler) DeletePlan(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid plan id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
 	if err := h.trainingService.DeletePlan(c.Request.Context(), id, oid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -199,12 +206,15 @@ func (h *TrainingHandler) DeletePlan(c *gin.Context) {
 }
 
 func (h *TrainingHandler) TodayTasks(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	tasks, err := h.trainingService.GetTodayTasks(c.Request.Context(), oid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -217,12 +227,13 @@ type UpdateTaskReq struct {
 }
 
 func (h *TrainingHandler) UpdateTask(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
-	planID, err := primitive.ObjectIDFromHex(c.Param("plan_id"))
-	if err != nil {
-		response.BadRequest(c, "invalid plan_id")
+	planID, ok := getObjectID(c, "plan_id")
+	if !ok {
 		return
 	}
 
@@ -234,6 +245,16 @@ func (h *TrainingHandler) UpdateTask(c *gin.Context) {
 
 	dayIndex, _ := strconv.Atoi(c.Param("day"))
 	taskIndex, _ := strconv.Atoi(c.Param("task_idx"))
+
+	// 校验day/task索引范围
+	if dayIndex < 0 || dayIndex >= len(plan.Days) {
+		response.BadRequest(c, "invalid day index")
+		return
+	}
+	if taskIndex < 0 || taskIndex >= len(plan.Days[dayIndex].Tasks) {
+		response.BadRequest(c, "invalid task index")
+		return
+	}
 
 	var req UpdateTaskReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -251,7 +272,8 @@ func (h *TrainingHandler) UpdateTask(c *gin.Context) {
 
 	status := model.TaskStatus(req.Status)
 	if err := h.trainingService.UpdateTaskStatus(c.Request.Context(), planID, dayIndex, taskIndex, status, checkinID); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -259,15 +281,15 @@ func (h *TrainingHandler) UpdateTask(c *gin.Context) {
 }
 
 func (h *TrainingHandler) GetReport(c *gin.Context) {
-	planID, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid plan id")
+	planID, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
 	report, err := h.trainingService.GetReport(c.Request.Context(), planID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -282,7 +304,8 @@ func (h *TrainingHandler) ListTemplates(c *gin.Context) {
 
 	templates, total, err := h.trainingService.ListTemplates(c.Request.Context(), category, style, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -293,9 +316,8 @@ func (h *TrainingHandler) ListTemplates(c *gin.Context) {
 }
 
 func (h *TrainingHandler) GetTemplate(c *gin.Context) {
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid template id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
@@ -313,12 +335,13 @@ type ApplyTemplateReq struct {
 }
 
 func (h *TrainingHandler) ApplyTemplate(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
-	templateID, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid template id")
+	templateID, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
@@ -336,7 +359,8 @@ func (h *TrainingHandler) ApplyTemplate(c *gin.Context) {
 
 	plan, err := h.trainingService.ApplyTemplate(c.Request.Context(), oid, templateID, startDate)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 

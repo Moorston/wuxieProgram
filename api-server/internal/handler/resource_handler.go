@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strconv"
 
 	"wuxie-api/internal/model"
@@ -20,8 +21,10 @@ func NewResourceHandler(resourceService *service.ResourceService) *ResourceHandl
 }
 
 func (h *ResourceHandler) Presign(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	ext := c.DefaultQuery("ext", "mp4")
 	objectName := h.resourceService.GenerateObjectName(oid, ext)
@@ -42,8 +45,10 @@ type UploadCallbackReq struct {
 }
 
 func (h *ResourceHandler) UploadCallback(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	var req UploadCallbackReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -61,7 +66,8 @@ func (h *ResourceHandler) UploadCallback(c *gin.Context) {
 	}
 
 	if err := h.resourceService.Create(c.Request.Context(), oid, res); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -84,8 +90,10 @@ type CreateResourceReq struct {
 }
 
 func (h *ResourceHandler) Create(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	var req CreateResourceReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -114,7 +122,8 @@ func (h *ResourceHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.resourceService.Create(c.Request.Context(), oid, res); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -128,8 +137,10 @@ func (h *ResourceHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	res, err := h.resourceService.GetByID(c.Request.Context(), id)
 	if err != nil {
@@ -148,8 +159,10 @@ func (h *ResourceHandler) GetByID(c *gin.Context) {
 }
 
 func (h *ResourceHandler) List(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	resType := c.Query("type")
 	category := c.Query("category")
@@ -176,7 +189,8 @@ func (h *ResourceHandler) List(c *gin.Context) {
 
 	resources, total, err := h.resourceService.List(c.Request.Context(), oid, resType, category, difficulty, tag, keyword, shareScope, sortBy, groupID, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -187,8 +201,10 @@ func (h *ResourceHandler) List(c *gin.Context) {
 }
 
 func (h *ResourceHandler) Update(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -211,7 +227,8 @@ func (h *ResourceHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.resourceService.Update(c.Request.Context(), id, uid, update); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -219,8 +236,10 @@ func (h *ResourceHandler) Update(c *gin.Context) {
 }
 
 func (h *ResourceHandler) Delete(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -228,8 +247,22 @@ func (h *ResourceHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// 验证资源所有权
+	res, err := h.resourceService.GetByID(c.Request.Context(), id)
+	if err != nil {
+		response.NotFound(c, "resource not found")
+		return
+	}
+
+	// 检查是否是资源所有者
+	if res.UserID != uid {
+		response.Forbidden(c, "permission denied: you can only delete your own resources")
+		return
+	}
+
 	if err := h.resourceService.Delete(c.Request.Context(), id, uid); err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -237,15 +270,21 @@ func (h *ResourceHandler) Delete(c *gin.Context) {
 }
 
 func (h *ResourceHandler) ToggleFavorite(c *gin.Context) {
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
 	id, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		response.BadRequest(c, "invalid resource id")
 		return
 	}
 
-	favorited, err := h.resourceService.ToggleFavorite(c.Request.Context(), id)
+	favorited, err := h.resourceService.ToggleFavorite(c.Request.Context(), id, uid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -253,15 +292,18 @@ func (h *ResourceHandler) ToggleFavorite(c *gin.Context) {
 }
 
 func (h *ResourceHandler) ListFavorites(c *gin.Context) {
-	userID := c.GetString("user_id")
-	oid, _ := primitive.ObjectIDFromHex(userID)
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
 	resources, total, err := h.resourceService.ListFavorites(c.Request.Context(), oid, page, pageSize)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -272,12 +314,15 @@ func (h *ResourceHandler) ListFavorites(c *gin.Context) {
 }
 
 func (h *ResourceHandler) GetTags(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	tags, err := h.resourceService.GetTags(c.Request.Context(), uid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 
@@ -285,12 +330,15 @@ func (h *ResourceHandler) GetTags(c *gin.Context) {
 }
 
 func (h *ResourceHandler) GetStats(c *gin.Context) {
-	userID := c.GetString("user_id")
-	uid, _ := primitive.ObjectIDFromHex(userID)
+	uid, ok := getUserID(c)
+	if !ok {
+		return
+	}
 
 	stats, err := h.resourceService.GetStats(c.Request.Context(), uid)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		response.InternalError(c, "internal server error")
 		return
 	}
 

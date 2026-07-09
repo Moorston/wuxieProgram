@@ -87,6 +87,29 @@ func (r *LikeRepo) Toggle(ctx context.Context, checkinID, userID primitive.Objec
 	return true, err
 }
 
+// ToggleWithSession 在事务中切换点赞状态
+func (r *LikeRepo) ToggleWithSession(sessCtx mongo.SessionContext, checkinID, userID primitive.ObjectID) (liked bool, err error) {
+	filter := bson.M{"checkin_id": checkinID, "user_id": userID}
+
+	count, err := r.coll.CountDocuments(sessCtx, filter)
+	if err != nil {
+		return false, err
+	}
+
+	if count > 0 {
+		_, err = r.coll.DeleteOne(sessCtx, filter)
+		return false, err
+	}
+
+	like := &model.Like{
+		CheckinID: checkinID,
+		UserID:    userID,
+		CreatedAt: time.Now(),
+	}
+	_, err = r.coll.InsertOne(sessCtx, like)
+	return true, err
+}
+
 func (r *LikeRepo) IsLiked(ctx context.Context, checkinID, userID primitive.ObjectID) (bool, error) {
 	count, err := r.coll.CountDocuments(ctx, bson.M{"checkin_id": checkinID, "user_id": userID})
 	return count > 0, err
@@ -119,4 +142,9 @@ func (r *LikeRepo) EnsureIndexes(ctx context.Context) error {
 		Options: options.Index().SetUnique(true),
 	})
 	return err
+}
+
+// StartSession 启动MongoDB会话用于事务
+func (r *LikeRepo) StartSession() (mongo.Session, error) {
+	return r.coll.Database().Client().StartSession()
 }

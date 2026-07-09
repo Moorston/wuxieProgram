@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"time"
 
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type InsightService struct {
@@ -38,7 +41,10 @@ func (s *InsightService) Create(ctx context.Context, userID primitive.ObjectID, 
 	}
 
 	if len(insight.Tags) > 0 {
-		s.tagRepo.UpsertTags(ctx, userID, insight.Tags)
+		if err := s.tagRepo.UpsertTags(ctx, userID, insight.Tags); err != nil {
+			// 标签更新失败不影响主流程，仅记录日志
+			log.Printf("[WARN] upsert insight tags failed: %v", err)
+		}
 	}
 
 	return nil
@@ -54,9 +60,19 @@ func (s *InsightService) Update(ctx context.Context, id, userID primitive.Object
 		return err
 	}
 
-	if tags, ok := update["tags"].([]string); ok {
-		s.tagRepo.DecrTags(ctx, userID, insight.Tags)
-		s.tagRepo.UpsertTags(ctx, userID, tags)
+	// 验证所有权
+	if insight.UserID != userID {
+		return fmt.Errorf("access denied: not insight owner")
+	}
+
+	// 处理JSON反序列化后的tags类型（可能是[]interface{}而非[]string）
+	if tags := extractTags(update["tags"]); tags != nil {
+		if err := s.tagRepo.DecrTags(ctx, userID, insight.Tags); err != nil {
+			log.Printf("[WARN] decr insight tags failed: %v", err)
+		}
+		if err := s.tagRepo.UpsertTags(ctx, userID, tags); err != nil {
+			log.Printf("[WARN] upsert insight tags failed: %v", err)
+		}
 	}
 
 	return s.insightRepo.Update(ctx, id, update)
@@ -69,7 +85,9 @@ func (s *InsightService) Delete(ctx context.Context, id, userID primitive.Object
 	}
 
 	if len(insight.Tags) > 0 {
-		s.tagRepo.DecrTags(ctx, userID, insight.Tags)
+		if err := s.tagRepo.DecrTags(ctx, userID, insight.Tags); err != nil {
+			log.Printf("[WARN] decr insight tags failed: %v", err)
+		}
 	}
 
 	return s.insightRepo.Delete(ctx, id, userID)
@@ -109,16 +127,35 @@ func (s *InsightService) GetTags(ctx context.Context, userID primitive.ObjectID)
 }
 
 func (s *InsightService) Like(ctx context.Context, id, userID primitive.ObjectID) (bool, error) {
-	liked, err := s.likeRepo.Toggle(ctx, id, userID)
+	// 使用MongoDB事务确保数据一致性
+	session, err := s.insightRepo.StartSession()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to start session: %w", err)
 	}
+	defer session.EndSession(ctx)
 
-	delta := -1
-	if liked {
-		delta = 1
+	var liked bool
+	_, err = session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		var txErr error
+		liked, txErr = s.likeRepo.ToggleWithSession(sessCtx, id, userID)
+		if txErr != nil {
+			return nil, txErr
+		}
+
+		delta := -1
+		if liked {
+			delta = 1
+		}
+		if txErr = s.insightRepo.IncrLikeCountWithSession(sessCtx, id, delta); txErr != nil {
+			return nil, txErr
+		}
+
+		return nil, nil
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("transaction failed: %w", err)
 	}
-	s.insightRepo.IncrLikeCount(ctx, id, delta)
 
 	return liked, nil
 }

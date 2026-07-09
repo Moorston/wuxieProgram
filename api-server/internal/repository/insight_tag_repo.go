@@ -21,32 +21,56 @@ func NewInsightTagRepo(db *mongo.Database) *InsightTagRepo {
 }
 
 func (r *InsightTagRepo) UpsertTags(ctx context.Context, userID primitive.ObjectID, tags []string) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	var models []mongo.WriteModel
+
 	for _, tag := range tags {
 		filter := bson.M{"user_id": userID, "tag": tag}
 		update := bson.M{
 			"$inc": bson.M{"count": 1},
-			"$set": bson.M{"updated_at": time.Now()},
+			"$set": bson.M{"updated_at": now},
 			"$setOnInsert": bson.M{
 				"user_id":    userID,
 				"tag":        tag,
-				"created_at": time.Now(),
+				"created_at": now,
 			},
 		}
-		opts := options.Update().SetUpsert(true)
-		r.coll.UpdateOne(ctx, filter, update, opts)
+		model := mongo.NewUpdateOneModel().
+			SetFilter(filter).
+			SetUpdate(update).
+			SetUpsert(true)
+		models = append(models, model)
 	}
-	return nil
+
+	_, err := r.coll.BulkWrite(ctx, models)
+	return err
 }
 
 func (r *InsightTagRepo) DecrTags(ctx context.Context, userID primitive.ObjectID, tags []string) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	var models []mongo.WriteModel
+
 	for _, tag := range tags {
 		filter := bson.M{"user_id": userID, "tag": tag, "count": bson.M{"$gt": 0}}
-		r.coll.UpdateOne(ctx, filter, bson.M{
+		update := bson.M{
 			"$inc": bson.M{"count": -1},
 			"$set": bson.M{"updated_at": time.Now()},
-		})
+		}
+		model := mongo.NewUpdateOneModel().
+			SetFilter(filter).
+			SetUpdate(update)
+		models = append(models, model)
 	}
-	return nil
+
+	_, err := r.coll.BulkWrite(ctx, models)
+	return err
 }
 
 func (r *InsightTagRepo) ListByUser(ctx context.Context, userID primitive.ObjectID) ([]*model.InsightTag, error) {

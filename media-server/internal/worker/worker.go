@@ -157,7 +157,15 @@ func (w *Worker) callback(payload map[string]interface{}) {
 	data, _ := json.Marshal(payload)
 	url := w.cfg.APIServer + "/api/internal/transcode/done"
 
-	resp, err := w.httpClient.Post(url, "application/json", bytes.NewReader(data))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+	if err != nil {
+		log.Printf("callback create request failed: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Secret", w.cfg.APISecret)
+
+	resp, err := w.httpClient.Do(req)
 	if err != nil {
 		log.Printf("callback failed: %v", err)
 		return

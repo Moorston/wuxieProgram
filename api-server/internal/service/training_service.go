@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -88,12 +90,12 @@ func (s *TrainingService) UpdateTaskStatus(ctx context.Context, planID primitive
 	}
 
 	if dayIndex < 0 || dayIndex >= len(plan.Days) {
-		return nil
+		return fmt.Errorf("day index %d out of range [0, %d)", dayIndex, len(plan.Days))
 	}
 
 	day := &plan.Days[dayIndex]
 	if taskIndex < 0 || taskIndex >= len(day.Tasks) {
-		return nil
+		return fmt.Errorf("task index %d out of range [0, %d)", taskIndex, len(day.Tasks))
 	}
 
 	day.Tasks[taskIndex].Status = status
@@ -112,10 +114,15 @@ func (s *TrainingService) UpdateTaskStatus(ctx context.Context, planID primitive
 		}
 	}
 
+	var completionRate float64
+	if totalTasks > 0 {
+		completionRate = float64(completed) / float64(totalTasks) * 100
+	}
+
 	plan.Stats = model.PlanStats{
-		TotalTasks:    totalTasks,
-		Completed:     completed,
-		CompletionRate: float64(completed) / float64(totalTasks) * 100,
+		TotalTasks:     totalTasks,
+		Completed:      completed,
+		CompletionRate: completionRate,
 	}
 
 	if err := s.planRepo.UpdateTasks(ctx, planID, plan.Days, plan.Stats); err != nil {
@@ -192,7 +199,9 @@ func (s *TrainingService) ApplyTemplate(ctx context.Context, userID primitive.Ob
 		return nil, err
 	}
 
-	s.templateRepo.IncrUsageCount(ctx, templateID)
+	if err := s.templateRepo.IncrUsageCount(ctx, templateID); err != nil {
+		log.Printf("[WARN] incr template usage count failed: %v", err)
+	}
 
 	endDate := startDate.AddDate(0, 0, template.DurationDays)
 

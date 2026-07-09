@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"wuxie-api/internal/config"
@@ -24,6 +28,14 @@ func main() {
 	// 加载配置
 	cfg := config.Load()
 
+	// 验证JWT密钥强度
+	if len(cfg.JWT.Secret) < 32 {
+		log.Fatal("FATAL: JWT secret must be at least 32 characters long")
+	}
+	if cfg.JWT.Secret == "wuxie-jwt-secret-change-in-production" {
+		log.Println("WARNING: Using default JWT secret. Please change it in production!")
+	}
+
 	// 初始化日志
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -36,7 +48,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect mongo: %v", err)
 	}
-	defer mongoClient.Disconnect(context.Background())
 
 	db := mongoClient.Database(cfg.Mongo.Database)
 
@@ -60,20 +71,26 @@ func main() {
 	resourceRepo := repository.NewResourceRepo(db)
 	resourceTagRepo := repository.NewResourceTagRepo(db)
 
-	// 创建索引
+	// 创建索引（忽略已存在的索引错误）
 	ctx := context.Background()
-	userRepo.EnsureIndexes(ctx)
-	checkinRepo.EnsureIndexes(ctx)
-	likeRepo.EnsureIndexes(ctx)
-	trainingRepo.EnsureIndexes(ctx)
-	templateRepo.EnsureIndexes(ctx)
-	notifRepo.EnsureIndexes(ctx)
-	notifSettingsRepo.EnsureIndexes(ctx)
-	insightRepo.EnsureIndexes(ctx)
-	insightTagRepo.EnsureIndexes(ctx)
-	insightLikeRepo.EnsureIndexes(ctx)
-	resourceRepo.EnsureIndexes(ctx)
-	resourceTagRepo.EnsureIndexes(ctx)
+	for name, ensureFn := range map[string]func(context.Context) error{
+		"user":             userRepo.EnsureIndexes,
+		"checkin":          checkinRepo.EnsureIndexes,
+		"like":             likeRepo.EnsureIndexes,
+		"training":         trainingRepo.EnsureIndexes,
+		"template":         templateRepo.EnsureIndexes,
+		"notification":     notifRepo.EnsureIndexes,
+		"notif_settings":   notifSettingsRepo.EnsureIndexes,
+		"insight":          insightRepo.EnsureIndexes,
+		"insight_tag":      insightTagRepo.EnsureIndexes,
+		"insight_like":     insightLikeRepo.EnsureIndexes,
+		"resource":         resourceRepo.EnsureIndexes,
+		"resource_tag":     resourceTagRepo.EnsureIndexes,
+	} {
+		if err := ensureFn(ctx); err != nil {
+			log.Printf("WARNING: ensure index %s failed: %v", name, err)
+		}
+	}
 
 	// Service
 	authService := service.NewAuthService(userRepo, jwtMgr, cfg)
@@ -96,13 +113,23 @@ func main() {
 	// Cron Service
 	cronService := service.NewCronService(userRepo, checkinRepo, rankRepo, trainingRepo, notifRepo, wxClient, cfg)
 
+	// 创建可取消的上下文用于定时任务
+	cronCtx, cronCancel := context.WithCancel(context.Background())
+	defer cronCancel()
+
 	// 启动定时任务
 	go func() {
-		cronService.RefreshAllRanks(ctx)
+		cronService.RefreshAllRanks(cronCtx)
 		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			cronService.RefreshAllRanks(ctx)
+		for {
+			select {
+			case <-cronCtx.Done():
+				log.Println("[cron] rank refresh stopped")
+				return
+			case <-ticker.C:
+				cronService.RefreshAllRanks(cronCtx)
+			}
 		}
 	}()
 
@@ -118,8 +145,13 @@ func main() {
 			if next.Before(now) {
 				next = next.AddDate(0, 0, 1)
 			}
-			time.Sleep(next.Sub(now))
-			cronService.SendTrainingReminders(ctx)
+			select {
+			case <-cronCtx.Done():
+				log.Println("[cron] training reminder stopped")
+				return
+			case <-time.After(next.Sub(now)):
+				cronService.SendTrainingReminders(cronCtx)
+			}
 		}
 	}()
 
@@ -141,10 +173,43 @@ func main() {
 	}
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, jwtMgr, logger)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, jwtMgr, logger, cfg)
 
-	log.Printf("api-server starting on :%s", cfg.Server.Port)
-	if err := r.Run(":" + cfg.Server.Port); err != nil {
-		log.Fatalf("server failed: %v", err)
+	// 配置HTTP服务器（含超时控制）
+	addr := ":" + cfg.Server.Port
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
+
+	// 启动HTTP服务（goroutine，不阻塞）
+	go func() {
+		log.Printf("api-server starting on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server failed: %v", err)
+		}
+	}()
+
+	// 等待中断信号，优雅关闭
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("shutting down server...")
+
+	// 先关闭HTTP服务（最多等待30秒）
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("server forced to shutdown: %v", err)
+	}
+
+	// 关闭MongoDB连接
+	if err := mongoClient.Disconnect(context.Background()); err != nil {
+		log.Printf("mongo disconnect error: %v", err)
+	}
+
+	log.Println("server exited")
 }

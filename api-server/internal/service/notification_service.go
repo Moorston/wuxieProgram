@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
@@ -65,11 +66,17 @@ func (s *NotificationService) Send(ctx context.Context, userID, senderID primiti
 }
 
 func (s *NotificationService) SendBatch(ctx context.Context, userIDs []primitive.ObjectID, senderID primitive.ObjectID, notifType model.NotificationType, title, content, targetType string, targetID primitive.ObjectID) error {
+	var errs []error
 	for _, uid := range userIDs {
 		if uid == senderID {
 			continue
 		}
-		s.Send(ctx, uid, senderID, notifType, title, content, targetType, targetID)
+		if err := s.Send(ctx, uid, senderID, notifType, title, content, targetType, targetID); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("send batch: %d errors, first: %w", len(errs), errs[0])
 	}
 	return nil
 }

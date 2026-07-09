@@ -1,12 +1,12 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"wuxie-api/internal/config"
@@ -15,6 +15,7 @@ import (
 	"wuxie-api/pkg/jwt"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AuthService struct {
@@ -60,23 +61,29 @@ func (s *AuthService) WXLogin(ctx context.Context, code string, nickname, avatar
 }
 
 func (s *AuthService) getOpenID(code string) (string, error) {
-	url := fmt.Sprintf("https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+	wxURL := "https://api.weixin.qq.com/sns/jscode2session"
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	form := fmt.Sprintf("appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
 		s.cfg.WX.AppID, s.cfg.WX.Secret, code)
 
-	resp, err := http.Get(url)
+	resp, err := client.Post(wxURL, "application/x-www-form-urlencoded", strings.NewReader(form))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("wx api request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read wx api response failed: %w", err)
+	}
 	var result struct {
-		OpenID string `json:"openid"`
-		ErrCode int   `json:"errcode"`
-		ErrMsg string `json:"errmsg"`
+		OpenID  string `json:"openid"`
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", err
+		return "", fmt.Errorf("parse wx api response failed: %w", err)
 	}
 	if result.ErrCode != 0 {
 		return "", fmt.Errorf("wx api error: %d %s", result.ErrCode, result.ErrMsg)
@@ -241,19 +248,38 @@ func NewSocialService(commentRepo *repository.CommentRepo, likeRepo *repository.
 }
 
 func (s *SocialService) ToggleLike(ctx context.Context, checkinID, userID primitive.ObjectID) (bool, error) {
-	liked, err := s.likeRepo.Toggle(ctx, checkinID, userID)
+	// 使用MongoDB事务确保数据一致性
+	session, err := s.likeRepo.StartSession()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to start session: %w", err)
+	}
+	defer session.EndSession(ctx)
+
+	// 在事务中执行点赞切换和计数更新
+	var liked bool
+	_, err = session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		var txErr error
+		liked, txErr = s.likeRepo.ToggleWithSession(sessCtx, checkinID, userID)
+		if txErr != nil {
+			return nil, txErr
+		}
+
+		delta := -1
+		if liked {
+			delta = 1
+		}
+		if txErr = s.checkinRepo.IncrLikeCountWithSession(sessCtx, checkinID, delta); txErr != nil {
+			return nil, txErr
+		}
+
+		return nil, nil
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("transaction failed: %w", err)
 	}
 
-	delta := -1
-	if liked {
-		delta = 1
-	}
-	if err := s.checkinRepo.IncrLikeCount(ctx, checkinID, delta); err != nil {
-		return false, err
-	}
-
+	// 事务外发送通知（通知不需要在事务中）
 	if liked && s.notifService != nil {
 		checkin, err := s.checkinRepo.FindByID(ctx, checkinID)
 		if err == nil && checkin.UserID != userID {
@@ -277,12 +303,25 @@ func (s *SocialService) AddComment(ctx context.Context, checkinID, userID primit
 		UserID:    userID,
 		Content:   content,
 	}
-	if err := s.commentRepo.Create(ctx, comment); err != nil {
-		return nil, err
-	}
 
-	if err := s.checkinRepo.IncrCommentCount(ctx, checkinID); err != nil {
-		return nil, err
+	// 使用事务确保评论创建和计数增加的原子性
+	session, err := s.likeRepo.StartSession()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start session: %w", err)
+	}
+	defer session.EndSession(ctx)
+
+	_, err = session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		if err := s.commentRepo.Create(sessCtx, comment); err != nil {
+			return nil, err
+		}
+		if err := s.checkinRepo.IncrCommentCountWithSession(sessCtx, checkinID); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("add comment transaction failed: %w", err)
 	}
 
 	user, _ := s.userRepo.FindByID(ctx, userID)
@@ -367,14 +406,36 @@ func (s *GroupService) List(ctx context.Context) ([]*model.Group, error) {
 		return nil, err
 	}
 
+	// 收集所有 group 的 MemberIDs，一次批量查询（避免 N+1）
+	allMemberIDs := make(map[primitive.ObjectID]struct{})
 	for _, g := range groups {
-		users, _ := s.userRepo.FindByIDs(ctx, g.MemberIDs)
-		g.Members = users
-		if len(users) > 0 {
+		for _, mid := range g.MemberIDs {
+			allMemberIDs[mid] = struct{}{}
+		}
+	}
+
+	uniqueIDs := make([]primitive.ObjectID, 0, len(allMemberIDs))
+	for id := range allMemberIDs {
+		uniqueIDs = append(uniqueIDs, id)
+	}
+
+	userMap := make(map[primitive.ObjectID]*model.User)
+	if len(uniqueIDs) > 0 {
+		users, err := s.userRepo.FindByIDs(ctx, uniqueIDs)
+		if err == nil {
 			for _, u := range users {
+				userMap[u.ID] = u
+			}
+		}
+	}
+
+	for _, g := range groups {
+		g.Members = make([]*model.User, 0, len(g.MemberIDs))
+		for _, mid := range g.MemberIDs {
+			if u, ok := userMap[mid]; ok {
+				g.Members = append(g.Members, u)
 				if u.ID == g.LeaderID {
 					g.Leader = u
-					break
 				}
 			}
 		}
@@ -399,40 +460,4 @@ func (s *GroupService) GetDetail(ctx context.Context, id primitive.ObjectID) (*m
 	}
 
 	return group, nil
-}
-
-// MediaClient 用于调用 media-server
-type MediaClient struct {
-	baseURL    string
-	httpClient *http.Client
-}
-
-func NewMediaClient(mediaURL string) *MediaClient {
-	return &MediaClient{
-		baseURL: mediaURL,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-	}
-}
-
-func (c *MediaClient) NotifyTranscodeDone(checkinID, videoURL, coverURL string, duration float64) error {
-	payload := map[string]interface{}{
-		"checkin_id": checkinID,
-		"video_url":  videoURL,
-		"cover_url":  coverURL,
-		"duration":   duration,
-	}
-	data, _ := json.Marshal(payload)
-
-	resp, err := c.httpClient.Post(c.baseURL+"/internal/transcode/done", "application/json", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("media server returned %d", resp.StatusCode)
-	}
-	return nil
 }

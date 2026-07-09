@@ -89,24 +89,45 @@ func (r *RankRepo) RefreshRank(ctx context.Context, period model.RankPeriod, ent
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// 删除旧排名
-	_, err := r.coll.DeleteMany(ctx, bson.M{"period": period})
-	if err != nil {
+	if len(entries) == 0 {
+		// 没有新数据时，清空该周期排名
+		_, err := r.coll.DeleteMany(ctx, bson.M{"period": period})
 		return err
 	}
 
-	// 批量插入新排名
-	if len(entries) == 0 {
-		return nil
-	}
-
-	docs := make([]interface{}, len(entries))
+	// 两阶段无窗口更新：
+	// 1. 先批量 upsert 新排名（替换旧数据，读者始终能看到数据）
+	// 2. 再删除已不在新排名中的旧条目
+	now := time.Now()
 	for i, e := range entries {
 		e.Period = period
-		e.UpdateAt = time.Now()
-		docs[i] = e
+		e.UpdateAt = now
 	}
 
-	_, err = r.coll.InsertMany(ctx, docs)
+	// 收集新排名中的用户ID，用于清理旧数据
+	newUserIDs := make([]primitive.ObjectID, len(entries))
+	for i, e := range entries {
+		newUserIDs[i] = e.UserID
+	}
+
+	// 第一阶段：批量 upsert 新排名
+	var models []mongo.WriteModel
+	for _, e := range entries {
+		filter := bson.M{"user_id": e.UserID, "period": period}
+		model := mongo.NewReplaceOneModel().
+			SetFilter(filter).
+			SetReplacement(e).
+			SetUpsert(true)
+		models = append(models, model)
+	}
+
+	// 第二阶段：删除已不在新排名中的旧条目
+	oldFilter := bson.M{
+		"period":  period,
+		"user_id": bson.M{"$nin": newUserIDs},
+	}
+	models = append(models, mongo.NewDeleteManyModel().SetFilter(oldFilter))
+
+	_, err := r.coll.BulkWrite(ctx, models)
 	return err
 }

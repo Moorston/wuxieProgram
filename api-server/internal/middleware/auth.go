@@ -7,6 +7,7 @@ import (
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func Auth(jwtMgr *jwt.JWTManager) gin.HandlerFunc {
@@ -22,6 +23,13 @@ func Auth(jwtMgr *jwt.JWTManager) gin.HandlerFunc {
 		claims, err := jwtMgr.Parse(tokenStr)
 		if err != nil {
 			response.Unauthorized(c, "invalid token")
+			c.Abort()
+			return
+		}
+
+		// 验证user_id是合法的ObjectID格式
+		if _, err := primitive.ObjectIDFromHex(claims.UserID); err != nil {
+			response.Unauthorized(c, "invalid user identity in token")
 			c.Abort()
 			return
 		}
