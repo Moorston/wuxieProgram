@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -32,4 +34,17 @@ func getObjectID(c *gin.Context, param string) (primitive.ObjectID, bool) {
 		return primitive.NilObjectID, false
 	}
 	return id, true
+}
+
+// parsePagination 解析分页参数，page从1开始，pageSize受全局最大限制
+func parsePagination(c *gin.Context, defaultSize int) (page, pageSize int) {
+	page, _ = strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ = strconv.Atoi(c.DefaultQuery("page_size", strconv.Itoa(defaultSize)))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = defaultSize
+	}
+	return
 }
