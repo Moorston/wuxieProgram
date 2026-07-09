@@ -25,7 +25,7 @@ func Probe(ctx context.Context, binary, inputPath string) (*ProbeResult, error) 
 		inputPath,
 	}
 
-	cmd := exec.CommandContext(ctx, binary+"probe", args...)
+	cmd := exec.CommandContext(ctx, "ffprobe", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		// ffprobe不可用时，用ffmpeg获取基本信息

@@ -17,7 +17,7 @@ import (
 var regexSpecialChars = regexp.MustCompile(`[[\]{}()*+?.\\^$|]`)
 
 func sanitizeRegex(s string) string {
-	return regexSpecialChars.ReplaceAllString(s, `\$&`)
+	return regexSpecialChars.ReplaceAllString(s, `\$0`)
 }
 
 // validateSearchKeyword 验证和清理搜索关键词，防止ReDoS攻击

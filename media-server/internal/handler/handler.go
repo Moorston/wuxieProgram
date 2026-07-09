@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"time"
 
 	"wuxie-media/internal/config"
@@ -33,11 +34,17 @@ func (h *UploadHandler) Presign(c *gin.Context) {
 	}
 
 	ext := c.DefaultQuery("ext", "mp4")
+	// 验证文件扩展名，防止路径遍历
+	allowedExt := regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+	if !allowedExt.MatchString(ext) || len(ext) > 10 {
+		response.BadRequest(c, "invalid file extension")
+		return
+	}
 	objectName := fmt.Sprintf("%s/%s.%s", time.Now().Format("20060102"), uuid.New().String(), ext)
 
 	presignedURL, err := h.minioClient.PresignPutURL(c.Request.Context(), h.cfg.MinIO.RawBucket, objectName, 15*time.Minute)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "internal server error")
 		return
 	}
 

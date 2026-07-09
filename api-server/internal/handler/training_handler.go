@@ -157,7 +157,11 @@ func (h *TrainingHandler) UpdatePlan(c *gin.Context) {
 	}
 
 	plan, err := h.trainingService.GetPlan(c.Request.Context(), id)
-	if err != nil || plan.UserID != oid {
+	if err != nil {
+		response.NotFound(c, "plan not found")
+		return
+	}
+	if plan.UserID != oid {
 		response.Forbidden(c, "no access")
 		return
 	}
@@ -238,7 +242,11 @@ func (h *TrainingHandler) UpdateTask(c *gin.Context) {
 	}
 
 	plan, err := h.trainingService.GetPlan(c.Request.Context(), planID)
-	if err != nil || plan.UserID != oid {
+	if err != nil {
+		response.NotFound(c, "plan not found")
+		return
+	}
+	if plan.UserID != oid {
 		response.Forbidden(c, "no access")
 		return
 	}
@@ -281,8 +289,23 @@ func (h *TrainingHandler) UpdateTask(c *gin.Context) {
 }
 
 func (h *TrainingHandler) GetReport(c *gin.Context) {
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
 	planID, ok := getObjectID(c, "id")
 	if !ok {
+		return
+	}
+
+	plan, err := h.trainingService.GetPlan(c.Request.Context(), planID)
+	if err != nil {
+		response.NotFound(c, "plan not found")
+		return
+	}
+	if plan.UserID != oid {
+		response.Forbidden(c, "no access")
 		return
 	}
 

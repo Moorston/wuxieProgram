@@ -305,7 +305,7 @@ func (s *SocialService) AddComment(ctx context.Context, checkinID, userID primit
 	}
 
 	// 使用事务确保评论创建和计数增加的原子性
-	session, err := s.likeRepo.StartSession()
+	session, err := s.commentRepo.StartSession()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start session: %w", err)
 	}

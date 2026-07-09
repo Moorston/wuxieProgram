@@ -38,6 +38,9 @@ func (j *JWTManager) Generate(userID string) (string, error) {
 
 func (j *JWTManager) Parse(tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return j.secret, nil
 	})
 	if err != nil {

@@ -155,7 +155,10 @@ func (h *CheckinHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), []primitive.ObjectID{id}, oid)
+	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), []primitive.ObjectID{id}, oid)
+	if err != nil {
+		log.Printf("[WARN] batch is_liked failed: %v", err)
+	}
 	checkin.IsLiked = likedMap[id]
 
 	response.Success(c, checkin)
@@ -190,12 +193,14 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 		return
 	}
 
-	// 填充点赞状态
 	checkinIDs := make([]primitive.ObjectID, len(checkins))
 	for i, ci := range checkins {
 		checkinIDs[i] = ci.ID
 	}
-	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
+	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
+	if err != nil {
+		log.Printf("[WARN] batch is_liked failed: %v", err)
+	}
 	for i := range checkins {
 		checkins[i].IsLiked = likedMap[checkins[i].ID]
 	}
@@ -283,7 +288,10 @@ func (h *CheckinHandler) Search(c *gin.Context) {
 	for i, ci := range checkins {
 		checkinIDs[i] = ci.ID
 	}
-	likedMap, _ := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
+	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
+	if err != nil {
+		log.Printf("[WARN] batch is_liked failed: %v", err)
+	}
 	for i := range checkins {
 		checkins[i].IsLiked = likedMap[checkins[i].ID]
 	}

@@ -46,7 +46,7 @@ func Setup(
 	api := r.Group("/api")
 	{
 		// 公开接口
-		api.POST("/auth/login", authH.Login)
+		api.POST("/auth/login", middleware.LoginRateLimit(), authH.Login)
 
 		// 需要鉴权的接口
 		auth := api.Group("", middleware.Auth(jwtMgr))

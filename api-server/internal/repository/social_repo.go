@@ -148,3 +148,8 @@ func (r *LikeRepo) EnsureIndexes(ctx context.Context) error {
 func (r *LikeRepo) StartSession() (mongo.Session, error) {
 	return r.coll.Database().Client().StartSession()
 }
+
+// StartSession 启动MongoDB会话用于事务
+func (r *CommentRepo) StartSession() (mongo.Session, error) {
+	return r.coll.Database().Client().StartSession()
+}

@@ -10,10 +10,11 @@ import (
 
 // RateLimiter 速率限制器（基于IP的简易实现）
 type RateLimiter struct {
-	visitors map[string]*visitor
-	mu        sync.Mutex
+	visitors    map[string]*visitor
+	mu          sync.Mutex
 	maxRequests int
 	window      time.Duration
+	stopCh      chan struct{}
 }
 
 type visitor struct {
@@ -33,9 +34,10 @@ func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
 	}
 
 	limiter := &RateLimiter{
-		visitors: make(map[string]*visitor),
+		visitors:    make(map[string]*visitor),
 		maxRequests: maxRequests,
 		window:      window,
+		stopCh:      make(chan struct{}),
 	}
 
 	// 启动清理协程
@@ -44,17 +46,27 @@ func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
 	return limiter
 }
 
+func (r *RateLimiter) Stop() {
+	close(r.stopCh)
+}
+
 func (r *RateLimiter) cleanupLoop() {
+	ticker := time.NewTicker(r.window)
+	defer ticker.Stop()
 	for {
-		time.Sleep(r.window)
-		r.mu.Lock()
-		now := time.Now()
-		for ip, v := range r.visitors {
-			if now.After(v.resetAt) {
-				delete(r.visitors, ip)
+		select {
+		case <-ticker.C:
+			r.mu.Lock()
+			now := time.Now()
+			for ip, v := range r.visitors {
+				if now.After(v.resetAt) {
+					delete(r.visitors, ip)
+				}
 			}
+			r.mu.Unlock()
+		case <-r.stopCh:
+			return
 		}
-		r.mu.Unlock()
 	}
 }
 
@@ -64,6 +76,8 @@ func (r *RateLimiter) Limit() gin.HandlerFunc {
 		ip := c.ClientIP()
 
 		r.mu.Lock()
+		defer r.mu.Unlock()
+
 		v, exists := r.visitors[ip]
 		now := time.Now()
 
@@ -71,16 +85,14 @@ func (r *RateLimiter) Limit() gin.HandlerFunc {
 			// 新访客或窗口过期
 			r.visitors[ip] = &visitor{
 				count:    1,
-				resetAt: now.Add(r.window),
+				resetAt:  now.Add(r.window),
 			}
-			r.mu.Unlock()
 			c.Next()
 			return
 		}
 
 		v.count++
 		if v.count > r.maxRequests {
-			r.mu.Unlock()
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error":       "Rate limit exceeded",
 				"retry_after": v.resetAt.Format(time.RFC3339),
@@ -88,22 +100,15 @@ func (r *RateLimiter) Limit() gin.HandlerFunc {
 			return
 		}
 
-		r.mu.Unlock()
 		c.Next()
 	}
 }
 
-// LoginRateLimit 登录接口专用速率限制
+// loginLimiter 登录接口专用速率限制器（单例）
 // 5分钟内最多5次尝试
+var loginLimiter = NewRateLimiter(5, 5*time.Minute)
+
+// LoginRateLimit 登录接口专用速率限制
 func LoginRateLimit() gin.HandlerFunc {
-	limiter := NewRateLimiter(5, 5*time.Minute)
-	
-	return func(c *gin.Context) {
-		// 只对登录接口应用严格限制
-		if c.Request.URL.Path == "/api/auth/login" {
-			limiter.Limit()(c)
-			return
-		}
-		c.Next()
-	}
+	return loginLimiter.Limit()
 }

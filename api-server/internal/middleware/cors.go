@@ -11,13 +11,25 @@ import (
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-		if origin == "" {
-			origin = "*"
+
+		// 白名单域名列表（生产环境应替换为实际域名）
+		allowedOrigins := map[string]bool{
+			"http://localhost:8080": true,
+			"http://localhost:3000": true,
+			"http://localhost":      true,
 		}
-		c.Header("Access-Control-Allow-Origin", origin)
+
+		// 仅当 Origin 在白名单中时才设置 Allow-Origin，否则不设置
+		if allowedOrigins[origin] {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+		} else if origin == "" {
+			// 无 Origin 的请求（小程序/App 原生请求）不限制
+			c.Header("Access-Control-Allow-Origin", "*")
+		}
+
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Request-ID")
-		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Access-Control-Max-Age", "86400")
 
 		if c.Request.Method == "OPTIONS" {

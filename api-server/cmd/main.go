@@ -206,8 +206,10 @@ func main() {
 		log.Fatalf("server forced to shutdown: %v", err)
 	}
 
-	// 关闭MongoDB连接
-	if err := mongoClient.Disconnect(context.Background()); err != nil {
+	// 关闭MongoDB连接（带超时）
+	disconnectCtx, disconnectCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer disconnectCancel()
+	if err := mongoClient.Disconnect(disconnectCtx); err != nil {
 		log.Printf("mongo disconnect error: %v", err)
 	}
 

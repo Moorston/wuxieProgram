@@ -174,7 +174,7 @@ func (s *TrainingService) GetReport(ctx context.Context, planID primitive.Object
 		}
 	}
 
-	daysPassed := int(time.Now().Sub(plan.StartDate).Hours() / 24)
+	daysPassed := int(time.Since(plan.StartDate).Hours() / 24)
 	if daysPassed < 0 {
 		daysPassed = 0
 	}

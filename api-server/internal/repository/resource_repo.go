@@ -81,7 +81,8 @@ func (r *ResourceRepo) List(ctx context.Context, userID primitive.ObjectID, resT
 		filter["tags"] = tag
 	}
 	if keyword != "" {
-		safeKeyword := sanitizeRegex(keyword)
+		safeKeyword := validateSearchKeyword(keyword)
+	safeKeyword = sanitizeRegex(safeKeyword)
 		keywordFilter := []bson.M{
 			{"title": bson.M{"$regex": safeKeyword, "$options": "i"}},
 			{"description": bson.M{"$regex": safeKeyword, "$options": "i"}},
@@ -136,8 +137,8 @@ func (r *ResourceRepo) List(ctx context.Context, userID primitive.ObjectID, resT
 }
 
 func (r *ResourceRepo) ToggleFavorite(ctx context.Context, id, userID primitive.ObjectID) (bool, error) {
-	// 使用 findOneAndUpdate 聚合管道原子性切换收藏状态，同时验证所有权
-	filter := bson.M{"_id": id, "user_id": userID}
+	// 使用 findOneAndUpdate 聚合管道原子性切换收藏状态
+	filter := bson.M{"_id": id}
 	update := bson.A{
 		bson.M{"$set": bson.M{
 			"is_favorite": bson.M{"$not": "$is_favorite"},

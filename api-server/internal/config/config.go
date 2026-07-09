@@ -63,5 +63,13 @@ func Load() *Config {
 		log.Fatalf("failed to unmarshal config: %v", err)
 	}
 
+	// 验证关键配置项
+	if cfg.Mongo.URI == "" {
+		log.Fatal("FATAL: mongo.uri is required")
+	}
+	if cfg.JWT.Secret == "" {
+		log.Fatal("FATAL: jwt.secret is required")
+	}
+
 	return &cfg
 }
