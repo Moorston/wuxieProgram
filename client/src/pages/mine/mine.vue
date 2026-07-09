@@ -93,8 +93,9 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getProfile, updateProfile } from '../../api'
+import { getProfile, updateProfile, getResourcePresign } from '../../api'
 import { useUserStore } from '../../store/user'
+import { MEDIA_URL } from '../../utils/request'
 
 const userStore = useUserStore()
 const userInfo = ref<any>(null)
@@ -124,8 +125,32 @@ function changeAvatar() {
   uni.chooseImage({
     count: 1,
     sizeType: ['compressed'],
-    success: (res) => {
-      editForm.avatar = res.tempFilePaths[0]
+    success: async (res) => {
+      const tempPath = res.tempFilePaths[0]
+      const ext = (tempPath.split('.').pop() || 'jpg').replace(/[^a-zA-Z0-9]/g, '')
+
+      try {
+        // 1. 获取预签名上传URL
+        const presignRes: any = await getResourcePresign(ext)
+        if (!presignRes || !presignRes.upload_url) {
+          throw new Error('failed to get upload url')
+        }
+
+        // 2. 上传文件到MinIO
+        const uploadResult = await uni.uploadFile({
+          url: presignRes.upload_url,
+          filePath: tempPath,
+          name: 'file',
+        })
+        if (uploadResult.statusCode !== 200) {
+          throw new Error('upload failed')
+        }
+
+        // 3. 构造头像URL
+        editForm.avatar = `${MEDIA_URL}/media/file/${presignRes.object_name}`
+      } catch (e) {
+        uni.showToast({ title: '头像上传失败', icon: 'none' })
+      }
     },
   })
 }

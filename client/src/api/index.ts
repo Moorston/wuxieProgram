@@ -200,7 +200,7 @@ export function likeInsight(id: string) {
 }
 
 export function getResourcePresign(ext: string) {
-  return request({ url: `/api/resource/upload/presign?ext=${ext}` })
+  return request({ url: `/api/resource/upload/presign?ext=${encodeURIComponent(ext)}` })
 }
 
 export function resourceUploadCallback(data: any) {

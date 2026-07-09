@@ -2,6 +2,7 @@ package handler
 
 import (
 	"log"
+	"regexp"
 	"strconv"
 
 	"wuxie-api/internal/model"
@@ -27,6 +28,12 @@ func (h *ResourceHandler) Presign(c *gin.Context) {
 	}
 
 	ext := c.DefaultQuery("ext", "mp4")
+	// 验证文件扩展名，防止路径遍历
+	allowedExt := regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+	if !allowedExt.MatchString(ext) || len(ext) > 10 {
+		response.BadRequest(c, "invalid file extension")
+		return
+	}
 	objectName := h.resourceService.GenerateObjectName(oid, ext)
 
 	response.Success(c, gin.H{

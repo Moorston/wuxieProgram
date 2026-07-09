@@ -30,6 +30,7 @@ export function request<T = any>(options: RequestOptions): Promise<T> {
       method: options.method || 'GET',
       data: options.data,
       header,
+      timeout: 15000,
       success: (res: any) => {
         const data = res.data as ApiResponse<T>
         if (data.code === 0) {
@@ -51,7 +52,7 @@ export function request<T = any>(options: RequestOptions): Promise<T> {
   })
 }
 
-const MEDIA_URL = 'http://localhost:8081'
+export const MEDIA_URL = 'http://localhost:8081'
 
 export function mediaRequest<T = any>(options: RequestOptions): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -70,6 +71,7 @@ export function mediaRequest<T = any>(options: RequestOptions): Promise<T> {
       method: options.method || 'GET',
       data: options.data,
       header,
+      timeout: 15000,
       success: (res: any) => {
         const data = res.data as ApiResponse<T>
         if (data.code === 0) {

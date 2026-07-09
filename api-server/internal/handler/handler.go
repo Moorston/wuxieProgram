@@ -21,7 +21,7 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 }
 
 type LoginReq struct {
-	Code      string `json:"code" binding:"required"`
+	Code      string `json:"code" binding:"required,max=256"`
 	Nickname  string `json:"nickname"`
 	Avatar    string `json:"avatar"`
 	Gender    int    `json:"gender"`
@@ -110,7 +110,7 @@ func NewCheckinHandler(checkinService *service.CheckinService, socialService *se
 }
 
 type PrepareReq struct {
-	Description string `json:"description"`
+	Description string `json:"description" binding:"max=200"`
 }
 
 func (h *CheckinHandler) Prepare(c *gin.Context) {

@@ -160,7 +160,7 @@ async function onSubmit() {
     await mediaRequest({
       url: '/media/upload/callback',
       method: 'POST',
-      data: { checkin_id: '', object_name: presign.object_name, bucket: presign.bucket },
+      data: { object_name: presign.object_name, bucket: presign.bucket },
     })
 
     await resourceUploadCallback({
