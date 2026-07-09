@@ -12,7 +12,7 @@ redis:
   db: 0
 
 jwt:
-  secret: "wuxie-jwt-secret-change-in-production"
+  secret: "wuxie-jwt-secret-change-in-production"  # 生产环境必须修改为至少32字符的随机字符串
   expires: 72
 
 wx:
