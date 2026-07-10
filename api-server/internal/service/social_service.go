@@ -76,7 +76,7 @@ func (s *SocialService) AddComment(ctx context.Context, checkinID, userID primit
 		UserID:    userID,
 		Content:   content,
 	}
-	if len(parentID) > 0 {
+	if len(parentID) > 0 && !parentID[0].IsZero() {
 		comment.ParentID = parentID[0]
 	}
 

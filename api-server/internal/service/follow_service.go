@@ -103,17 +103,27 @@ type FeedItem struct {
 
 // GetFeed 获取关注用户的动态流
 func (s *FollowService) GetFeed(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]FeedItem, error) {
-	// 获取关注列表（最多 500 人）
-	followingIDs, _, err := s.followRepo.GetFollowing(ctx, userID, 1, 500)
-	if err != nil {
-		return nil, err
+	// 获取所有关注列表（分批获取，上限 1000 人）
+	var followingIDs []primitive.ObjectID
+	batchPage := 1
+	const batchSize = 200
+	for {
+		ids, _, err := s.followRepo.GetFollowing(ctx, userID, batchPage, batchSize)
+		if err != nil {
+			return nil, err
+		}
+		followingIDs = append(followingIDs, ids...)
+		if len(ids) < batchSize || len(followingIDs) >= 1000 {
+			break
+		}
+		batchPage++
 	}
 
 	if len(followingIDs) == 0 {
 		return []FeedItem{}, nil
 	}
 
-	// 直接查询关注用户的打卡（$in 查询，服务端过滤）
+	// 查询关注用户的打卡
 	checkins, _, err := s.checkinRepo.ListByUserIDs(ctx, followingIDs, page, pageSize)
 	if err != nil {
 		s.logger.Warn("get feed: query checkins failed", zap.Error(err))
@@ -143,7 +153,10 @@ func (s *FollowService) GetUserProfile(ctx context.Context, targetID, viewerID p
 		return nil, err
 	}
 
-	following, followers, _ := s.GetFollowStats(ctx, targetID)
+	following, followers, err := s.GetFollowStats(ctx, targetID)
+	if err != nil {
+		s.logger.Warn("get user profile: follow stats failed", zap.String("target_id", targetID.Hex()), zap.Error(err))
+	}
 	isFollowing, _ := s.IsFollowing(ctx, viewerID, targetID)
 
 	return &UserProfile{
