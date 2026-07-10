@@ -10,11 +10,11 @@ import (
 )
 
 type GroupService struct {
-	groupRepo *repository.GroupRepo
-	userRepo  *repository.UserRepo
+	groupRepo repository.GroupRepoInterface
+	userRepo  repository.UserRepoInterface
 }
 
-func NewGroupService(groupRepo *repository.GroupRepo, userRepo *repository.UserRepo) *GroupService {
+func NewGroupService(groupRepo repository.GroupRepoInterface, userRepo repository.UserRepoInterface) *GroupService {
 	return &GroupService{groupRepo: groupRepo, userRepo: userRepo}
 }
 

@@ -15,12 +15,12 @@ import (
 const defaultQuota = 5 * 1024 * 1024 * 1024 // 5GB
 
 type ResourceService struct {
-	resourceRepo *repository.ResourceRepo
-	tagRepo      *repository.ResourceTagRepo
-	userRepo     *repository.UserRepo
+	resourceRepo repository.ResourceRepoInterface
+	tagRepo      repository.ResourceTagRepoInterface
+	userRepo     repository.UserRepoInterface
 }
 
-func NewResourceService(resourceRepo *repository.ResourceRepo, tagRepo *repository.ResourceTagRepo, userRepo *repository.UserRepo) *ResourceService {
+func NewResourceService(resourceRepo repository.ResourceRepoInterface, tagRepo repository.ResourceTagRepoInterface, userRepo repository.UserRepoInterface) *ResourceService {
 	return &ResourceService{resourceRepo: resourceRepo, tagRepo: tagRepo, userRepo: userRepo}
 }
 

@@ -10,12 +10,12 @@ import (
 )
 
 type CheckinService struct {
-	checkinRepo *repository.CheckinRepo
-	userRepo    *repository.UserRepo
+	checkinRepo repository.CheckinRepoInterface
+	userRepo    repository.UserRepoInterface
 	mediaURL    string
 }
 
-func NewCheckinService(checkinRepo *repository.CheckinRepo, userRepo *repository.UserRepo, mediaURL string) *CheckinService {
+func NewCheckinService(checkinRepo repository.CheckinRepoInterface, userRepo repository.UserRepoInterface, mediaURL string) *CheckinService {
 	return &CheckinService{checkinRepo: checkinRepo, userRepo: userRepo, mediaURL: mediaURL}
 }
 

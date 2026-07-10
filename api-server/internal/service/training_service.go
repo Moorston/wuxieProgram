@@ -13,12 +13,12 @@ import (
 )
 
 type TrainingService struct {
-	planRepo     *repository.TrainingRepo
-	templateRepo *repository.TemplateRepo
+	planRepo     repository.TrainingRepoInterface
+	templateRepo repository.TemplateRepoInterface
 	notifService *NotificationService
 }
 
-func NewTrainingService(planRepo *repository.TrainingRepo, templateRepo *repository.TemplateRepo, notifService *NotificationService) *TrainingService {
+func NewTrainingService(planRepo repository.TrainingRepoInterface, templateRepo repository.TemplateRepoInterface, notifService *NotificationService) *TrainingService {
 	return &TrainingService{planRepo: planRepo, templateRepo: templateRepo, notifService: notifService}
 }
 

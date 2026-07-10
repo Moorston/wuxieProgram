@@ -14,13 +14,13 @@ import (
 )
 
 type InsightService struct {
-	insightRepo  *repository.InsightRepo
-	tagRepo      *repository.InsightTagRepo
-	likeRepo     *repository.InsightLikeRepo
-	userRepo     *repository.UserRepo
+	insightRepo  repository.InsightRepoInterface
+	tagRepo      repository.InsightTagRepoInterface
+	likeRepo     repository.InsightLikeRepoInterface
+	userRepo     repository.UserRepoInterface
 }
 
-func NewInsightService(insightRepo *repository.InsightRepo, tagRepo *repository.InsightTagRepo, likeRepo *repository.InsightLikeRepo, userRepo *repository.UserRepo) *InsightService {
+func NewInsightService(insightRepo repository.InsightRepoInterface, tagRepo repository.InsightTagRepoInterface, likeRepo repository.InsightLikeRepoInterface, userRepo repository.UserRepoInterface) *InsightService {
 	return &InsightService{insightRepo: insightRepo, tagRepo: tagRepo, likeRepo: likeRepo, userRepo: userRepo}
 }
 

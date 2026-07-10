@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -15,26 +14,29 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.uber.org/zap"
 )
 
 type CronService struct {
-	userRepo    *repository.UserRepo
-	checkinRepo *repository.CheckinRepo
-	rankRepo    *repository.RankRepo
-	planRepo    *repository.TrainingRepo
-	notifRepo   *repository.NotificationRepo
+	userRepo    repository.UserRepoInterface
+	checkinRepo repository.CheckinRepoInterface
+	rankRepo    repository.RankRepoInterface
+	planRepo    repository.TrainingRepoInterface
+	notifRepo   repository.NotificationRepoInterface
 	wxClient    *wxpkg.Client
 	cfg         *config.Config
+	logger      *zap.Logger
 }
 
 func NewCronService(
-	userRepo *repository.UserRepo,
-	checkinRepo *repository.CheckinRepo,
-	rankRepo *repository.RankRepo,
-	planRepo *repository.TrainingRepo,
-	notifRepo *repository.NotificationRepo,
+	userRepo repository.UserRepoInterface,
+	checkinRepo repository.CheckinRepoInterface,
+	rankRepo repository.RankRepoInterface,
+	planRepo repository.TrainingRepoInterface,
+	notifRepo repository.NotificationRepoInterface,
 	wxClient *wxpkg.Client,
 	cfg *config.Config,
+	logger *zap.Logger,
 ) *CronService {
 	return &CronService{
 		userRepo:    userRepo,
@@ -44,11 +46,12 @@ func NewCronService(
 		notifRepo:   notifRepo,
 		wxClient:    wxClient,
 		cfg:         cfg,
+		logger:      logger,
 	}
 }
 
 func (s *CronService) RefreshAllRanks(ctx context.Context) {
-	log.Println("[cron] refreshing all ranks...")
+	s.logger.Info("refreshing all ranks", zap.String("component", "cron"))
 
 	var wg sync.WaitGroup
 	wg.Add(3)
@@ -67,11 +70,11 @@ func (s *CronService) RefreshAllRanks(ctx context.Context) {
 	}()
 
 	wg.Wait()
-	log.Println("[cron] rank refresh done")
+	s.logger.Info("rank refresh done", zap.String("component", "cron"))
 }
 
 func (s *CronService) SendTrainingReminders(ctx context.Context) {
-	log.Println("[cron] sending training reminders...")
+	s.logger.Info("sending training reminders", zap.String("component", "cron"))
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	todayEnd := todayStart.AddDate(0, 0, 1)
@@ -84,14 +87,14 @@ func (s *CronService) SendTrainingReminders(ctx context.Context) {
 
 	cursor, err := s.planRepo.FindActive(ctx, filter)
 	if err != nil {
-		log.Printf("[cron] find active plans failed: %v", err)
+		s.logger.Error("find active plans failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var plans []*model.TrainingPlan
 	if err := cursor.All(ctx, &plans); err != nil {
-		log.Printf("[cron] decode plans failed: %v", err)
+		s.logger.Error("decode plans failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 
@@ -124,7 +127,11 @@ func (s *CronService) SendTrainingReminders(ctx context.Context) {
 			IsRead:     false,
 		}
 		if err := s.notifRepo.Create(ctx, notif); err != nil {
-			log.Printf("[cron] create notification failed for plan %s: %v", plan.ID.Hex(), err)
+			s.logger.Error("create notification failed",
+				zap.String("component", "cron"),
+				zap.String("plan_id", plan.ID.Hex()),
+				zap.Error(err),
+			)
 		}
 
 		user, err := s.userRepo.FindByID(ctx, plan.UserID)
@@ -146,13 +153,13 @@ func (s *CronService) SendTrainingReminders(ctx context.Context) {
 		}
 	}
 
-	log.Println("[cron] training reminders done")
+	s.logger.Info("training reminders done", zap.String("component", "cron"))
 }
 
 func (s *CronService) refreshAllRank(ctx context.Context) {
 	users, err := s.userRepo.FindTopByScore(ctx, 100)
 	if err != nil {
-		log.Printf("[cron] refresh all rank failed: %v", err)
+		s.logger.Error("refresh all rank failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 
@@ -166,7 +173,7 @@ func (s *CronService) refreshAllRank(ctx context.Context) {
 	}
 
 	if err := s.rankRepo.RefreshRank(ctx, model.RankPeriodAll, entries); err != nil {
-		log.Printf("[cron] save all rank failed: %v", err)
+		s.logger.Error("save all rank failed", zap.String("component", "cron"), zap.Error(err))
 	}
 }
 
@@ -200,14 +207,14 @@ func (s *CronService) refreshWeekRank(ctx context.Context) {
 
 	cursor, err := s.checkinRepo.Aggregate(ctx, pipeline)
 	if err != nil {
-		log.Printf("[cron] refresh week rank failed: %v", err)
+		s.logger.Error("refresh week rank failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var results []userScore
 	if err := cursor.All(ctx, &results); err != nil {
-		log.Printf("[cron] decode week rank failed: %v", err)
+		s.logger.Error("decode week rank failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 
@@ -221,7 +228,7 @@ func (s *CronService) refreshWeekRank(ctx context.Context) {
 	}
 
 	if err := s.rankRepo.RefreshRank(ctx, model.RankPeriodWeek, entries); err != nil {
-		log.Printf("[cron] save week rank failed: %v", err)
+		s.logger.Error("save week rank failed", zap.String("component", "cron"), zap.Error(err))
 	}
 }
 
@@ -251,14 +258,14 @@ func (s *CronService) refreshDayRank(ctx context.Context) {
 
 	cursor, err := s.checkinRepo.Aggregate(ctx, pipeline)
 	if err != nil {
-		log.Printf("[cron] refresh day rank failed: %v", err)
+		s.logger.Error("refresh day rank failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var results []userScore
 	if err := cursor.All(ctx, &results); err != nil {
-		log.Printf("[cron] decode day rank failed: %v", err)
+		s.logger.Error("decode day rank failed", zap.String("component", "cron"), zap.Error(err))
 		return
 	}
 
@@ -272,6 +279,6 @@ func (s *CronService) refreshDayRank(ctx context.Context) {
 	}
 
 	if err := s.rankRepo.RefreshRank(ctx, model.RankPeriodDay, entries); err != nil {
-		log.Printf("[cron] save day rank failed: %v", err)
+		s.logger.Error("save day rank failed", zap.String("component", "cron"), zap.Error(err))
 	}
 }

@@ -10,10 +10,10 @@ import (
 )
 
 type RankService struct {
-	rankRepo *repository.RankRepo
+	rankRepo repository.RankRepoInterface
 }
 
-func NewRankService(rankRepo *repository.RankRepo) *RankService {
+func NewRankService(rankRepo repository.RankRepoInterface) *RankService {
 	return &RankService{rankRepo: rankRepo}
 }
 

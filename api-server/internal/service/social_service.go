@@ -12,14 +12,14 @@ import (
 )
 
 type SocialService struct {
-	commentRepo  *repository.CommentRepo
-	likeRepo     *repository.LikeRepo
-	checkinRepo  *repository.CheckinRepo
-	userRepo     *repository.UserRepo
+	commentRepo  repository.CommentRepoInterface
+	likeRepo     repository.LikeRepoInterface
+	checkinRepo  repository.CheckinRepoInterface
+	userRepo     repository.UserRepoInterface
 	notifService *NotificationService
 }
 
-func NewSocialService(commentRepo *repository.CommentRepo, likeRepo *repository.LikeRepo, checkinRepo *repository.CheckinRepo, userRepo *repository.UserRepo, notifService *NotificationService) *SocialService {
+func NewSocialService(commentRepo repository.CommentRepoInterface, likeRepo repository.LikeRepoInterface, checkinRepo repository.CheckinRepoInterface, userRepo repository.UserRepoInterface, notifService *NotificationService) *SocialService {
 	return &SocialService{commentRepo: commentRepo, likeRepo: likeRepo, checkinRepo: checkinRepo, userRepo: userRepo, notifService: notifService}
 }
 

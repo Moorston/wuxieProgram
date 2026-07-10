@@ -12,15 +12,15 @@ import (
 )
 
 type NotificationService struct {
-	notifRepo     *repository.NotificationRepo
-	settingsRepo  *repository.NotificationSettingsRepo
-	userRepo      *repository.UserRepo
+	notifRepo     repository.NotificationRepoInterface
+	settingsRepo  repository.NotificationSettingsRepoInterface
+	userRepo      repository.UserRepoInterface
 }
 
 func NewNotificationService(
-	notifRepo *repository.NotificationRepo,
-	settingsRepo *repository.NotificationSettingsRepo,
-	userRepo *repository.UserRepo,
+	notifRepo repository.NotificationRepoInterface,
+	settingsRepo repository.NotificationSettingsRepoInterface,
+	userRepo repository.UserRepoInterface,
 ) *NotificationService {
 	return &NotificationService{
 		notifRepo:    notifRepo,
