@@ -90,6 +90,10 @@ func New(cfg *config.Config) (*App, error) {
 	compRepo := repository.NewCompetitionRepo(db)
 	entryRepo := repository.NewCompetitionEntryRepo(db)
 
+	// Badge
+	badgeRepo := repository.NewBadgeRepo(db)
+	userBadgeRepo := repository.NewUserBadgeRepo(db)
+
 	// 创建索引
 	ctx := context.Background()
 	for name, ensureFn := range map[string]func(context.Context) error{
@@ -109,6 +113,8 @@ func New(cfg *config.Config) (*App, error) {
 		"follow":         followRepo.EnsureIndexes,
 		"competition":    compRepo.EnsureIndexes,
 		"competition_entry": entryRepo.EnsureIndexes,
+		"badge":           badgeRepo.EnsureIndexes,
+		"user_badge":      userBadgeRepo.EnsureIndexes,
 	} {
 		if err := ensureFn(ctx); err != nil {
 			log.Printf("WARNING: ensure index %s failed: %v", name, err)
@@ -148,6 +154,10 @@ func New(cfg *config.Config) (*App, error) {
 	// Competition Service
 	compService := service.NewCompetitionService(compRepo, entryRepo, checkinRepo, userRepo, logger)
 
+	// Badge Service
+	badgeService := service.NewBadgeService(badgeRepo, userBadgeRepo, userRepo, logger)
+	badgeService.SeedDefaults(ctx) // 初始化默认徽章
+
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)
 	userH := handler.NewUserHandler(userService, logger)
@@ -163,9 +173,10 @@ func New(cfg *config.Config) (*App, error) {
 	analyticsH := handler.NewAnalyticsHandler(analyticsService)
 	followH := handler.NewFollowHandler(followService, logger)
 	compH := handler.NewCompetitionHandler(compService, logger)
+	badgeH := handler.NewBadgeHandler(badgeService, logger)
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, compH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, compH, badgeH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
 
 	// HTTP Server
 	addr := ":" + cfg.Server.Port

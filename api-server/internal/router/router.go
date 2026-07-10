@@ -28,6 +28,7 @@ func Setup(
 	analyticsH *handler.AnalyticsHandler,
 	followH *handler.FollowHandler,
 	compH *handler.CompetitionHandler,
+	badgeH *handler.BadgeHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -145,6 +146,10 @@ func Setup(
 			auth.GET("/competitions/:id/entries", compH.Entries)
 			auth.GET("/competitions/:id/ranking", compH.Ranking)
 			auth.POST("/competitions/:id/entries/:entryId/score", compH.Score)
+
+			// 徽章
+			auth.GET("/badges", badgeH.GetAllBadges)
+			auth.GET("/badges/my", badgeH.GetUserBadges)
 
 			// 个人资料库
 			auth.GET("/resource/upload/presign", resourceH.Presign)

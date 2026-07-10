@@ -86,3 +86,6 @@ export { followUser, unfollowUser, getFollowing, getFollowers, getFeed, getUserP
 
 // 赛事
 export { getCompetitions, getCompetitionDetail, submitCompetitionEntry, getCompetitionEntries, getCompetitionRanking, scoreEntry } from './competition'
+
+// 徽章
+export { getAllBadges, getMyBadges } from './badge'
