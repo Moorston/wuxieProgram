@@ -6,38 +6,44 @@
 <title>武俱打卡 - 管理后台</title>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, system-ui, sans-serif; background: #f0f2f5; color: #333; }
-.sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: #1e293b; color: #fff; padding: 20px 0; }
-.sidebar h2 { padding: 0 20px 20px; border-bottom: 1px solid #334155; font-size: 18px; }
-.sidebar .nav-item { padding: 12px 20px; cursor: pointer; color: #94a3b8; transition: all .2s; }
-.sidebar .nav-item:hover, .sidebar .nav-item.active { background: #334155; color: #fff; }
-.main { margin-left: 220px; padding: 24px; }
-.header { background: #fff; padding: 16px 24px; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-th { background: #f8fafc; color: #64748b; font-weight: 600; }
-.btn { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
-.btn-primary { background: #3b82f6; color: #fff; }
-.btn-danger { background: #ef4444; color: #fff; }
-.btn-success { background: #22c55e; color: #fff; }
-.btn-sm { padding: 4px 10px; font-size: 12px; }
-.ml-2 { margin-left: 8px; }
-.login-page { display: flex; justify-content: center; align-items: center; height: 100vh; }
-.login-box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); width: 360px; }
-.login-box h1 { text-align: center; margin-bottom: 32px; font-size: 24px; }
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #64748b; }
-.form-group input { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
-.form-group input:focus { outline: none; border-color: #3b82f6; }
-.alert { padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 14px; }
-.alert-error { background: #fef2f2; color: #dc2626; }
-.alert-success { background: #f0fdf4; color: #16a34a; }
-.search-box { display: flex; gap: 8px; margin-bottom: 16px; }
-.search-box input { flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
-.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
-.pagination button { padding: 6px 14px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; }</style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,sans-serif;background:#f0f2f5;color:#333}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:#1e293b;color:#fff;padding:20px 0}
+.sidebar h2{padding:0 20px 20px;border-bottom:1px solid #334155;font-size:18px}
+.sidebar .nav-item{padding:12px 20px;cursor:pointer;color:#94a3b8;transition:all .2s}
+.sidebar .nav-item:hover,.sidebar .nav-item.active{background:#334155;color:#fff}
+.main{margin-left:220px;padding:24px}
+.header{background:#fff;padding:16px 24px;border-radius:8px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.card{background:#fff;border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px;text-align:left;border-bottom:1px solid #e2e8f0;font-size:14px}
+th{background:#f8fafc;color:#64748b;font-weight:600}
+.btn{padding:6px 16px;border:none;border-radius:4px;cursor:pointer;font-size:13px}
+.btn-primary{background:#3b82f6;color:#fff}
+.btn-danger{background:#ef4444;color:#fff}
+.btn-success{background:#22c55e;color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px}
+.ml-2{margin-left:8px}
+.login-page{display:flex;justify-content:center;align-items:center;height:100vh}
+.login-box{background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.1);width:360px}
+.login-box h1{text-align:center;margin-bottom:32px;font-size:24px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;margin-bottom:6px;font-size:14px;color:#64748b}
+.form-group input{width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:14px}
+.form-group input:focus{outline:none;border-color:#3b82f6}
+.alert{padding:12px;border-radius:6px;margin-bottom:16px;font-size:14px}
+.alert-error{background:#fef2f2;color:#dc2626}
+.search-box{display:flex;gap:8px;margin-bottom:16px}
+.search-box input{flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:8px;padding:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.stat-value{font-size:36px;font-weight:700;margin-bottom:4px}
+.stat-label{font-size:14px;color:#64748b}
+.export-bar{display:flex;gap:8px;margin-bottom:16px}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600}
+.badge-active{background:#dcfce7;color:#16a34a}
+.badge-banned{background:#fef2f2;color:#dc2626}
+</style>
 </head>
 <body>
 <div id="app">
@@ -64,67 +70,109 @@ th { background: #f8fafc; color: #64748b; font-weight: 600; }
   <div v-else>
     <div class="sidebar">
       <h2>武俱管理</h2>
-      <div class="nav-item" :class="{ active: tab === 'dashboard' }" @click="tab='dashboard'">📊 仪表盘</div>
-      <div class="nav-item" :class="{ active: tab === 'users' }" @click="tab='users'">👥 用户管理</div>
-      <div class="nav-item" :class="{ active: tab === 'checkins' }" @click="tab='checkins'">📹 打卡管理</div>
-      <div class="nav-item" :class="{ active: tab === 'insights' }" @click="tab='insights'">📝 感悟管理</div>
+      <div class="nav-item" :class="{active:tab==='dashboard'}" @click="switchTab('dashboard')">📊 仪表盘</div>
+      <div class="nav-item" :class="{active:tab==='users'}" @click="switchTab('users')">👥 用户管理</div>
+      <div class="nav-item" :class="{active:tab==='checkins'}" @click="switchTab('checkins')">📹 打卡管理</div>
+      <div class="nav-item" :class="{active:tab==='insights'}" @click="switchTab('insights')">📝 感悟管理</div>
       <div class="nav-item" @click="doLogout" style="margin-top:40px;color:#ef4444">🚪 退出登录</div>
     </div>
 
     <div class="main">
       <!-- 仪表盘 -->
-      <div v-if="tab === 'dashboard'">
+      <div v-if="tab==='dashboard'">
         <div class="header"><h2>📊 仪表盘</h2></div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
-          <div class="card" style="text-align:center"><h3 style="color:#3b82f6;font-size:36px">{{ stats.total_users }}</h3><p>总用户数</p></div>
-          <div class="card" style="text-align:center"><h3 style="color:#22c55e;font-size:36px">{{ stats.active_users }}</h3><p>活跃用户</p></div>
-          <div class="card" style="text-align:center"><h3 style="color:#f59e0b;font-size:36px">{{ stats.today_checkins }}</h3><p>今日打卡</p></div>
-          <div class="card" style="text-align:center"><h3 style="color:#ef4444;font-size:36px">{{ stats.banned_users }}</h3><p>封禁用户</p></div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-value" style="color:#3b82f6">{{ stats.total_users }}</div><div class="stat-label">总用户数</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:#22c55e">{{ stats.active_users }}</div><div class="stat-label">活跃用户</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:#f59e0b">{{ stats.total_checkins }}</div><div class="stat-label">总打卡数</div></div>
+          <div class="stat-card"><div class="stat-value" style="color:#ef4444">{{ stats.banned_users }}</div><div class="stat-label">封禁用户</div></div>
         </div>
       </div>
 
       <!-- 用户管理 -->
-      <div v-if="tab === 'users'">
+      <div v-if="tab==='users'">
         <div class="header"><h2>👥 用户管理</h2></div>
         <div class="search-box">
-          <input v-model="userKeyword" placeholder="搜索用户昵称...">
+          <input v-model="userKeyword" placeholder="搜索用户昵称..." @keyup.enter="loadUsers">
           <button class="btn btn-primary" @click="loadUsers">搜索</button>
+        </div>
+        <div class="export-bar">
+          <a :href="API+'/export/users'" target="_blank" class="btn btn-primary btn-sm">📥 导出 CSV</a>
         </div>
         <div class="card">
           <table>
             <thead><tr><th>ID</th><th>昵称</th><th>积分</th><th>打卡天数</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="u in userList" :key="u.id">
-                <td style="font-family:monospace;font-size:12px">{{ u.id.slice(-8) }}</td>
+                <td style="font-family:monospace;font-size:12px">{{ u.id?.slice(-8) }}</td>
                 <td>{{ u.nickname || '-' }}</td>
                 <td>{{ u.score }}</td>
                 <td>{{ u.check_days }}</td>
-                <td><span :style="{color: u.status === 1 ? '#ef4444' : '#22c55e'}">{{ u.status === 1 ? '封禁' : '正常' }}</span></td>
+                <td><span class="badge" :class="u.status===1?'badge-banned':'badge-active'">{{ u.status===1?'封禁':'正常' }}</span></td>
                 <td>{{ u.created_at?.slice(0,10) }}</td>
                 <td>
-                  <button v-if="u.status !== 1" class="btn btn-sm btn-danger" @click="banUser(u.id)">封禁</button>
+                  <button v-if="u.status!==1" class="btn btn-sm btn-danger" @click="banUser(u.id)">封禁</button>
                   <button v-else class="btn btn-sm btn-success" @click="unbanUser(u.id)">解封</button>
                 </td>
               </tr>
             </tbody>
           </table>
           <div v-if="userLoading" style="text-align:center;padding:20px;color:#94a3b8">加载中...</div>
+          <div v-if="!userLoading && userList.length===0" style="text-align:center;padding:20px;color:#94a3b8">暂无数据</div>
         </div>
       </div>
 
       <!-- 打卡管理 -->
-      <div v-if="tab === 'checkins'">
+      <div v-if="tab==='checkins'">
         <div class="header"><h2>📹 打卡管理</h2></div>
+        <div class="export-bar">
+          <a :href="API+'/export/checkins'" target="_blank" class="btn btn-primary btn-sm">📥 导出 CSV</a>
+        </div>
         <div class="card">
-          <p style="color:#94a3b8">打卡内容管理（开发中）</p>
+          <table>
+            <thead><tr><th>ID</th><th>用户ID</th><th>描述</th><th>评分</th><th>点赞</th><th>评论</th><th>时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="c in checkinList" :key="c.id">
+                <td style="font-family:monospace;font-size:12px">{{ c.id?.slice(-8) }}</td>
+                <td style="font-family:monospace;font-size:12px">{{ c.user_id?.slice(-8) }}</td>
+                <td>{{ (c.description||'').slice(0,30) }}{{ (c.description||'').length>30?'...':'' }}</td>
+                <td>{{ c.score }}</td>
+                <td>{{ c.like_count }}</td>
+                <td>{{ c.comment_count }}</td>
+                <td>{{ c.created_at?.slice(0,10) }}</td>
+                <td><button class="btn btn-sm btn-danger" @click="deleteCheckin(c.id)">删除</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="checkinLoading" style="text-align:center;padding:20px;color:#94a3b8">加载中...</div>
+          <div v-if="!checkinLoading && checkinList.length===0" style="text-align:center;padding:20px;color:#94a3b8">暂无数据</div>
         </div>
       </div>
 
       <!-- 感悟管理 -->
-      <div v-if="tab === 'insights'">
+      <div v-if="tab==='insights'">
         <div class="header"><h2>📝 感悟管理</h2></div>
+        <div class="export-bar">
+          <a :href="API+'/export/insights'" target="_blank" class="btn btn-primary btn-sm">📥 导出 CSV</a>
+        </div>
         <div class="card">
-          <p style="color:#94a3b8">感悟内容管理（开发中）</p>
+          <table>
+            <thead><tr><th>ID</th><th>用户ID</th><th>内容</th><th>心情</th><th>点赞</th><th>公开</th><th>时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="i in insightList" :key="i.id">
+                <td style="font-family:monospace;font-size:12px">{{ i.id?.slice(-8) }}</td>
+                <td style="font-family:monospace;font-size:12px">{{ i.user_id?.slice(-8) }}</td>
+                <td>{{ (i.content||'').slice(0,30) }}{{ (i.content||'').length>30?'...':'' }}</td>
+                <td>{{ i.mood || '-' }}</td>
+                <td>{{ i.like_count }}</td>
+                <td>{{ i.is_public ? '是' : '否' }}</td>
+                <td>{{ i.created_at?.slice(0,10) }}</td>
+                <td><button class="btn btn-sm btn-danger" @click="deleteInsight(i.id)">删除</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="insightLoading" style="text-align:center;padding:20px;color:#94a3b8">加载中...</div>
+          <div v-if="!insightLoading && insightList.length===0" style="text-align:center;padding:20px;color:#94a3b8">暂无数据</div>
         </div>
       </div>
     </div>
@@ -132,88 +180,115 @@ th { background: #f8fafc; color: #64748b; font-weight: 600; }
 </div>
 
 <script>
-const { createApp, ref, reactive } = Vue
-
+const {createApp,ref,reactive} = Vue
 const API = 'http://localhost:8080/api/admin'
 
 createApp({
-  setup() {
-    const token = ref(localStorage.getItem('admin_token') || '')
+  setup(){
+    const token = ref(localStorage.getItem('admin_token')||'')
     const tab = ref('dashboard')
-    const loginForm = reactive({ username: '', password: '' })
+    const loginForm = reactive({username:'',password:''})
     const loginError = ref('')
     const loggingIn = ref(false)
 
-    const stats = reactive({ total_users: 0, active_users: 0, today_checkins: 0, banned_users: 0 })
+    const stats = reactive({total_users:0,active_users:0,total_checkins:0,banned_users:0})
     const userList = ref([])
     const userKeyword = ref('')
     const userLoading = ref(false)
+    const checkinList = ref([])
+    const checkinLoading = ref(false)
+    const insightList = ref([])
+    const insightLoading = ref(false)
 
-    function api(path, options = {}) {
-      return fetch(API + path, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token.value ? { 'Authorization': 'Bearer ' + token.value } : {}),
-          ...options.headers,
-        },
+    function api(path,options={}){
+      return fetch(API+path,{
+        headers:{'Content-Type':'application/json',...(token.value?{Authorization:'Bearer '+token.value}:{}),...options.headers},
         ...options,
-      }).then(r => r.json())
+      }).then(r=>r.json())
     }
 
-    async function doLogin() {
-      loggingIn.value = true
-      loginError.value = ''
-      try {
-        const res = await api('/login', {
-          method: 'POST',
-          body: JSON.stringify(loginForm),
-        })
-        if (res.code === 0 && res.data?.token) {
-          token.value = res.data.token
-          localStorage.setItem('admin_token', res.data.token)
-        } else {
-          loginError.value = res.message || '登录失败'
-        }
-      } catch (e) {
-        loginError.value = '网络错误'
-      } finally {
-        loggingIn.value = false
-      }
+    async function doLogin(){
+      loggingIn.value=true; loginError.value=''
+      try{
+        const res=await api('/login',{method:'POST',body:JSON.stringify(loginForm)})
+        if(res.code===0&&res.data?.token){
+          token.value=res.data.token
+          localStorage.setItem('admin_token',res.data.token)
+          loadDashboard()
+        }else{loginError.value=res.message||'登录失败'}
+      }catch(e){loginError.value='网络错误'}
+      finally{loggingIn.value=false}
     }
 
-    function doLogout() {
-      token.value = ''
+    function doLogout(){
+      token.value=''
       localStorage.removeItem('admin_token')
     }
 
-    async function loadUsers() {
-      userLoading.value = true
-      try {
-        const res = await api('/users?q=' + encodeURIComponent(userKeyword.value))
-        if (res.code === 0) userList.value = res.data?.list || []
-      } finally {
-        userLoading.value = false
-      }
+    async function loadDashboard(){
+      const res=await api('/dashboard')
+      if(res.code===0&&res.data) Object.assign(stats,res.data)
     }
 
-    async function banUser(id) {
-      if (!confirm('确认封禁该用户？')) return
-      await api('/users/' + id + '/ban', { method: 'PUT' })
+    async function loadUsers(){
+      userLoading.value=true
+      try{
+        const res=await api('/users?q='+encodeURIComponent(userKeyword.value))
+        if(res.code===0) userList.value=res.data?.list||[]
+      }finally{userLoading.value=false}
+    }
+
+    async function loadCheckins(){
+      checkinLoading.value=true
+      try{
+        const res=await api('/checkins')
+        if(res.code===0) checkinList.value=res.data?.list||[]
+      }finally{checkinLoading.value=false}
+    }
+
+    async function loadInsights(){
+      insightLoading.value=true
+      try{
+        const res=await api('/insights')
+        if(res.code===0) insightList.value=res.data?.list||[]
+      }finally{insightLoading.value=false}
+    }
+
+    async function banUser(id){
+      if(!confirm('确认封禁该用户？')) return
+      await api('/users/'+id+'/ban',{method:'PUT'})
       loadUsers()
     }
 
-    async function unbanUser(id) {
-      await api('/users/' + id + '/unban', { method: 'PUT' })
+    async function unbanUser(id){
+      await api('/users/'+id+'/unban',{method:'PUT'})
       loadUsers()
     }
 
-    // 自动加载
-    if (token.value) {
-      api('/stats').then(r => { if (r.code === 0 && r.data) Object.assign(stats, r.data) })
-      loadUsers()
+    async function deleteCheckin(id){
+      if(!confirm('确认删除该打卡？')) return
+      await api('/checkins/'+id,{method:'DELETE'})
+      loadCheckins()
     }
 
-    return { token, tab, loginForm, loginError, loggingIn, doLogin, doLogout, stats, userList, userKeyword, userLoading, loadUsers, banUser, unbanUser }
+    async function deleteInsight(id){
+      if(!confirm('确认删除该感悟？')) return
+      await api('/insights/'+id,{method:'DELETE'})
+      loadInsights()
+    }
+
+    function switchTab(t){
+      tab.value=t
+      if(t==='users') loadUsers()
+      if(t==='checkins') loadCheckins()
+      if(t==='insights') loadInsights()
+      if(t==='dashboard') loadDashboard()
+    }
+
+    // 初始加载
+    if(token.value) loadDashboard()
+
+    return {token,tab,loginForm,loginError,loggingIn,doLogin,doLogout,stats,userList,userKeyword,userLoading,checkinList,checkinLoading,insightList,insightLoading,loadUsers,banUser,unbanUser,deleteCheckin,deleteInsight,switchTab,API}
   }
 }).mount('#app')
 </script>

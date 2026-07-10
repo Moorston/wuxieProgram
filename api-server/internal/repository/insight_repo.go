@@ -57,6 +57,31 @@ func (r *InsightRepo) DeleteByID(ctx context.Context, id primitive.ObjectID) err
 	return err
 }
 
+// ListAll 管理员查询所有感悟（分页）
+func (r *InsightRepo) ListAll(ctx context.Context, page, pageSize int) ([]*model.Insight, int64, error) {
+	total, err := r.coll.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(int64((page - 1) * pageSize)).
+		SetLimit(int64(pageSize))
+
+	cursor, err := r.coll.Find(ctx, bson.M{}, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var insights []*model.Insight
+	if err := cursor.All(ctx, &insights); err != nil {
+		return nil, 0, err
+	}
+	return insights, total, nil
+}
+
 func (r *InsightRepo) ListByUser(ctx context.Context, userID primitive.ObjectID, tag, mood string, page, pageSize int) ([]*model.Insight, int64, error) {
 	filter := bson.M{"user_id": userID}
 	if tag != "" {

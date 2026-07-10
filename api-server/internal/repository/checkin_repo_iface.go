@@ -19,6 +19,7 @@ type CheckinRepoInterface interface {
 	UpdateStatus(ctx context.Context, id primitive.ObjectID, status model.CheckinStatus, videoURL, coverURL string, duration float64) error
 	List(ctx context.Context, userID primitive.ObjectID, groupUserIDs []primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
 	ListByUser(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
+	ListAll(ctx context.Context, page, pageSize int) ([]*model.Checkin, int64, error)
 	Delete(ctx context.Context, id, userID primitive.ObjectID) error
 	DeleteByID(ctx context.Context, id primitive.ObjectID) error
 	IncrLikeCount(ctx context.Context, id primitive.ObjectID, delta int) error
@@ -27,6 +28,7 @@ type CheckinRepoInterface interface {
 	IncrCommentCountWithSession(sessCtx mongo.SessionContext, id primitive.ObjectID) error
 	Search(ctx context.Context, keyword string, page, pageSize int) ([]*model.Checkin, int64, error)
 	Aggregate(ctx context.Context, pipeline []bson.M) (mongo.Cursor, error)
+	CountAll(ctx context.Context) (int64, error)
 }
 
 var _ CheckinRepoInterface = (*CheckinRepo)(nil)

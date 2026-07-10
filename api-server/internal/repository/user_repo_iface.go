@@ -23,6 +23,9 @@ type UserRepoInterface interface {
 	Update(ctx context.Context, id primitive.ObjectID, update bson.M) error
 	IncrScore(ctx context.Context, id primitive.ObjectID, score int) error
 	IsBanned(ctx context.Context, id primitive.ObjectID) (bool, error)
+	FindAll(ctx context.Context, page, pageSize int, keyword string) ([]*model.User, int64, error)
+	Count(ctx context.Context) (int64, error)
+	CountByStatus(ctx context.Context, status int) (int64, error)
 }
 
 // 确保 *UserRepo 实现了 UserRepoInterface

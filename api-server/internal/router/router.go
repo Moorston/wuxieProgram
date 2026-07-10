@@ -145,11 +145,17 @@ func Setup(
 			admin.POST("/login", adminH.Login)
 			adminAuth := admin.Group("", middleware.Auth(jwtMgr, blacklist), middleware.AdminOnly())
 			{
+				adminAuth.GET("/dashboard", adminH.GetDashboard)
 				adminAuth.GET("/users", adminH.GetUsers)
 				adminAuth.PUT("/users/:id/ban", adminH.BanUser)
 				adminAuth.PUT("/users/:id/unban", adminH.UnbanUser)
+				adminAuth.GET("/checkins", adminH.GetCheckins)
 				adminAuth.DELETE("/checkins/:id", adminH.DeleteCheckin)
+				adminAuth.GET("/insights", adminH.GetInsights)
 				adminAuth.DELETE("/insights/:id", adminH.DeleteInsight)
+				adminAuth.GET("/export/users", adminH.ExportUsers)
+				adminAuth.GET("/export/checkins", adminH.ExportCheckins)
+				adminAuth.GET("/export/insights", adminH.ExportInsights)
 			}
 		}
 	}

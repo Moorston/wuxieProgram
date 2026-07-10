@@ -163,6 +163,36 @@ func (r *CheckinRepo) DeleteByID(ctx context.Context, id primitive.ObjectID) err
 	return err
 }
 
+// ListAll 管理员查询所有打卡（分页）
+func (r *CheckinRepo) ListAll(ctx context.Context, page, pageSize int) ([]*model.Checkin, int64, error) {
+	total, err := r.coll.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(int64((page - 1) * pageSize)).
+		SetLimit(int64(pageSize))
+
+	cursor, err := r.coll.Find(ctx, bson.M{}, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var checkins []*model.Checkin
+	if err := cursor.All(ctx, &checkins); err != nil {
+		return nil, 0, err
+	}
+	return checkins, total, nil
+}
+
+// CountAll 统计打卡总数
+func (r *CheckinRepo) CountAll(ctx context.Context) (int64, error) {
+	return r.coll.CountDocuments(ctx, bson.M{})
+}
+
 func (r *CheckinRepo) IncrLikeCount(ctx context.Context, id primitive.ObjectID, delta int) error {
 	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
 		"$inc": bson.M{"like_count": delta},

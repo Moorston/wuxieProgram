@@ -103,6 +103,46 @@ func (r *UserRepo) IsBanned(ctx context.Context, id primitive.ObjectID) (bool, e
 	return user.Status == 1, nil
 }
 
+// FindAll 分页查询用户（支持关键词搜索）
+func (r *UserRepo) FindAll(ctx context.Context, page, pageSize int, keyword string) ([]*model.User, int64, error) {
+	filter := bson.M{}
+	if keyword != "" {
+		filter["nickname"] = bson.M{"$regex": keyword, "$options": "i"}
+	}
+
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(int64((page - 1) * pageSize)).
+		SetLimit(int64(pageSize))
+
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []*model.User
+	if err := cursor.All(ctx, &users); err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}
+
+// Count 统计用户总数
+func (r *UserRepo) Count(ctx context.Context) (int64, error) {
+	return r.coll.CountDocuments(ctx, bson.M{})
+}
+
+// CountByStatus 按状态统计用户数
+func (r *UserRepo) CountByStatus(ctx context.Context, status int) (int64, error) {
+	return r.coll.CountDocuments(ctx, bson.M{"status": status})
+}
+
 func (r *UserRepo) Update(ctx context.Context, id primitive.ObjectID, update bson.M) error {
 	update["updated_at"] = time.Now()
 	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": update})
