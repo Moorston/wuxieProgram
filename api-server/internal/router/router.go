@@ -31,6 +31,7 @@ func Setup(
 	badgeH *handler.BadgeHandler,
 	annH *handler.GroupAnnouncementHandler,
 	challengeH *handler.ChallengeHandler,
+	rankHistoryH *handler.RankHistoryHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -85,6 +86,7 @@ func Setup(
 			// 排行榜
 			auth.GET("/rank", rankH.GetRankList)
 			auth.GET("/rank/me", rankH.GetMyRank)
+			auth.GET("/rank/trend", rankHistoryH.GetRankTrend)
 
 			// 考核组
 			auth.GET("/group/list", groupH.List)

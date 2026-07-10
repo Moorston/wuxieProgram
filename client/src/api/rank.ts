@@ -47,3 +47,7 @@ export function leaveGroup(groupId: string) {
 export function setGroupLeader(groupId: string, userId: string) {
   return request({ url: `/api/group/${groupId}/set-leader`, method: 'POST', data: { user_id: userId } })
 }
+
+export function getRankTrend(period = 'all', days = 30) {
+  return request({ url: `/api/rank/trend?period=${period}&days=${days}` })
+}
