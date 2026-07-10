@@ -65,10 +65,12 @@ type Comment struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	CheckinID primitive.ObjectID `bson:"checkin_id" json:"checkin_id"`
 	UserID    primitive.ObjectID `bson:"user_id" json:"user_id"`
+	ParentID  primitive.ObjectID `bson:"parent_id,omitempty" json:"parent_id,omitempty"` // 回复的评论ID
 	Content   string             `bson:"content" json:"content"`
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 
-	User *User `bson:"-" json:"user,omitempty"`
+	User     *User     `bson:"-" json:"user,omitempty"`
+	Replies  []*Comment `bson:"-" json:"replies,omitempty"` // 子回复（联查填充）
 }
 
 type Like struct {

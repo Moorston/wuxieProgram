@@ -26,6 +26,7 @@ func Setup(
 	insightH *handler.InsightHandler,
 	resourceH *handler.ResourceHandler,
 	analyticsH *handler.AnalyticsHandler,
+	followH *handler.FollowHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -123,6 +124,14 @@ func Setup(
 			auth.GET("/analytics/checkin-heatmap", analyticsH.GetCheckinHeatmap)
 			auth.GET("/analytics/checkin-trend", analyticsH.GetCheckinTrend)
 			auth.GET("/analytics/overview", analyticsH.GetOverview)
+
+			// 关注系统
+			auth.POST("/follow/:id", followH.Follow)
+			auth.DELETE("/follow/:id", followH.Unfollow)
+			auth.GET("/follow/following", followH.GetFollowing)
+			auth.GET("/follow/followers", followH.GetFollowers)
+			auth.GET("/feed", followH.GetFeed)
+			auth.GET("/user/:id/profile", followH.GetUserProfile)
 
 			// 个人资料库
 			auth.GET("/resource/upload/presign", resourceH.Presign)

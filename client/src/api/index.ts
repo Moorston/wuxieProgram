@@ -80,3 +80,6 @@ export {
 
 // 数据分析
 export { getCheckinHeatmap, getCheckinTrend, getAnalyticsOverview } from './analytics'
+
+// 社交
+export { followUser, unfollowUser, getFollowing, getFollowers, getFeed, getUserProfile } from './social'

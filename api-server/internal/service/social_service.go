@@ -70,11 +70,14 @@ func (s *SocialService) ToggleLike(ctx context.Context, checkinID, userID primit
 	return liked, nil
 }
 
-func (s *SocialService) AddComment(ctx context.Context, checkinID, userID primitive.ObjectID, content string) (*model.Comment, error) {
+func (s *SocialService) AddComment(ctx context.Context, checkinID, userID primitive.ObjectID, content string, parentID ...primitive.ObjectID) (*model.Comment, error) {
 	comment := &model.Comment{
 		CheckinID: checkinID,
 		UserID:    userID,
 		Content:   content,
+	}
+	if len(parentID) > 0 {
+		comment.ParentID = parentID[0]
 	}
 
 	session, err := s.commentRepo.StartSession()

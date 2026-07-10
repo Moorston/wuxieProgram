@@ -16,6 +16,7 @@ import (
 type CommentRepoInterface interface {
 	Create(ctx context.Context, c *model.Comment) error
 	ListByCheckin(ctx context.Context, checkinID primitive.ObjectID, page, pageSize int) ([]*model.Comment, int64, error)
+	ListReplies(ctx context.Context, parentID primitive.ObjectID) ([]*model.Comment, error)
 	StartSession() (mongo.Session, error)
 }
 

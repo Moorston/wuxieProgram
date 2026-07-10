@@ -83,6 +83,9 @@ func New(cfg *config.Config) (*App, error) {
 	// Audit Log
 	auditLogRepo := repository.NewAuditLogRepo(db)
 
+	// Follow
+	followRepo := repository.NewFollowRepo(db)
+
 	// 创建索引
 	ctx := context.Background()
 	for name, ensureFn := range map[string]func(context.Context) error{
@@ -99,6 +102,7 @@ func New(cfg *config.Config) (*App, error) {
 		"resource":       resourceRepo.EnsureIndexes,
 		"resource_tag":   resourceTagRepo.EnsureIndexes,
 		"audit_log":      auditLogRepo.EnsureIndexes,
+		"follow":         followRepo.EnsureIndexes,
 	} {
 		if err := ensureFn(ctx); err != nil {
 			log.Printf("WARNING: ensure index %s failed: %v", name, err)
@@ -132,6 +136,9 @@ func New(cfg *config.Config) (*App, error) {
 	// Analytics Service
 	analyticsService := service.NewAnalyticsService(checkinRepo, userRepo, logger)
 
+	// Follow Service
+	followService := service.NewFollowService(followRepo, checkinRepo, insightRepo, userRepo, logger)
+
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)
 	userH := handler.NewUserHandler(userService, logger)
@@ -145,9 +152,10 @@ func New(cfg *config.Config) (*App, error) {
 	resourceH := handler.NewResourceHandler(resourceService, logger)
 	adminH := handler.NewAdminHandler(adminService, logger)
 	analyticsH := handler.NewAnalyticsHandler(analyticsService)
+	followH := handler.NewFollowHandler(followService, logger)
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
 
 	// HTTP Server
 	addr := ":" + cfg.Server.Port

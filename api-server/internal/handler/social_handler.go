@@ -45,7 +45,8 @@ func (h *SocialHandler) ToggleLike(c *gin.Context) {
 }
 
 type CommentReq struct {
-	Content string `json:"content" binding:"required,min=1,max=500"`
+	Content  string `json:"content" binding:"required,min=1,max=500"`
+	ParentID string `json:"parent_id,omitempty"`
 }
 
 func (h *SocialHandler) AddComment(c *gin.Context) {
@@ -66,7 +67,17 @@ func (h *SocialHandler) AddComment(c *gin.Context) {
 		return
 	}
 
-	comment, err := h.socialService.AddComment(c.Request.Context(), checkinID, oid, req.Content)
+	var parentID primitive.ObjectID
+	if req.ParentID != "" {
+		pid, err := primitive.ObjectIDFromHex(req.ParentID)
+		if err != nil {
+			response.BadRequest(c, "invalid parent_id")
+			return
+		}
+		parentID = pid
+	}
+
+	comment, err := h.socialService.AddComment(c.Request.Context(), checkinID, oid, req.Content, parentID)
 	if err != nil {
 		h.logger.Error("add comment failed",
 			zap.String("method", c.Request.Method),

@@ -31,7 +31,8 @@ func (r *CommentRepo) Create(ctx context.Context, c *model.Comment) error {
 }
 
 func (r *CommentRepo) ListByCheckin(ctx context.Context, checkinID primitive.ObjectID, page, pageSize int) ([]*model.Comment, int64, error) {
-	filter := bson.M{"checkin_id": checkinID}
+	// 只返回顶层评论（无 parent_id）
+	filter := bson.M{"checkin_id": checkinID, "parent_id": bson.M{"$exists": false}}
 
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {
@@ -55,6 +56,24 @@ func (r *CommentRepo) ListByCheckin(ctx context.Context, checkinID primitive.Obj
 	}
 
 	return comments, total, nil
+}
+
+// ListReplies 获取某评论的回复列表
+func (r *CommentRepo) ListReplies(ctx context.Context, parentID primitive.ObjectID) ([]*model.Comment, error) {
+	filter := bson.M{"parent_id": parentID}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}}) // 回复按时间正序
+
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var replies []*model.Comment
+	if err := cursor.All(ctx, &replies); err != nil {
+		return nil, err
+	}
+	return replies, nil
 }
 
 type LikeRepo struct {
