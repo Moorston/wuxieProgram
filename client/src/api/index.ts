@@ -21,7 +21,7 @@ export {
 } from './checkin'
 
 // 排行榜 + 团组
-export { getRankList, getMyRank, getGroupList, getGroupDetail, generateGroupInviteCode, joinGroupByInviteCode } from './rank'
+export { getRankList, getMyRank, getGroupList, getGroupDetail, generateGroupInviteCode, joinGroupByInviteCode, createGroupAnnouncement, getGroupAnnouncements, deleteGroupAnnouncement } from './rank'
 
 // 训练计划
 export {

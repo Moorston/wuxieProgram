@@ -29,6 +29,7 @@ func Setup(
 	followH *handler.FollowHandler,
 	compH *handler.CompetitionHandler,
 	badgeH *handler.BadgeHandler,
+	annH *handler.GroupAnnouncementHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -89,6 +90,11 @@ func Setup(
 			auth.GET("/group/:id", groupH.Detail)
 			auth.POST("/group/:id/invite", groupH.GenerateInviteCode)
 			auth.POST("/group/join", groupH.JoinByInviteCode)
+
+			// 团组公告
+			auth.POST("/group/announcements", annH.Create)
+			auth.GET("/group/:group_id/announcements", annH.List)
+			auth.DELETE("/group/announcements/:id", annH.Delete)
 
 			// 训练计划
 			auth.POST("/training/plan", trainingH.CreatePlan)

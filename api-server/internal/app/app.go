@@ -94,6 +94,9 @@ func New(cfg *config.Config) (*App, error) {
 	badgeRepo := repository.NewBadgeRepo(db)
 	userBadgeRepo := repository.NewUserBadgeRepo(db)
 
+	// Group Announcement
+	annRepo := repository.NewGroupAnnouncementRepo(db)
+
 	// 创建索引
 	ctx := context.Background()
 	for name, ensureFn := range map[string]func(context.Context) error{
@@ -115,6 +118,7 @@ func New(cfg *config.Config) (*App, error) {
 		"competition_entry": entryRepo.EnsureIndexes,
 		"badge":           badgeRepo.EnsureIndexes,
 		"user_badge":      userBadgeRepo.EnsureIndexes,
+		"group_announcement": annRepo.EnsureIndexes,
 	} {
 		if err := ensureFn(ctx); err != nil {
 			log.Printf("WARNING: ensure index %s failed: %v", name, err)
@@ -158,6 +162,9 @@ func New(cfg *config.Config) (*App, error) {
 	badgeService := service.NewBadgeService(badgeRepo, userBadgeRepo, userRepo, logger)
 	badgeService.SeedDefaults(ctx) // 初始化默认徽章
 
+	// Group Announcement Service
+	annService := service.NewGroupAnnouncementService(annRepo, groupRepo, userRepo, logger)
+
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)
 	userH := handler.NewUserHandler(userService, logger)
@@ -174,9 +181,10 @@ func New(cfg *config.Config) (*App, error) {
 	followH := handler.NewFollowHandler(followService, logger)
 	compH := handler.NewCompetitionHandler(compService, logger)
 	badgeH := handler.NewBadgeHandler(badgeService, logger)
+	annH := handler.NewGroupAnnouncementHandler(annService, logger)
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, compH, badgeH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, compH, badgeH, annH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
 
 	// HTTP Server
 	addr := ":" + cfg.Server.Port
