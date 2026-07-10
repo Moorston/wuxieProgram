@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/csv"
 	"fmt"
+	"strconv"
 	"time"
 
 	"wuxie-api/internal/service"
@@ -175,11 +177,22 @@ func (h *CheckinHandler) ExportMine(c *gin.Context) {
 
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=my_checkins_%s.csv", time.Now().Format("20060102")))
-	c.Writer.Write([]byte("\xEF\xBB\xBF"))
-	c.Writer.Write([]byte("ID,描述,评分,状态,创建时间\n"))
+	c.Writer.Write([]byte("\xEF\xBB\xBF")) // UTF-8 BOM
+
+	w := csv.NewWriter(c.Writer)
+	w.Write([]string{"ID", "描述", "评分", "状态", "创建时间"})
 	for _, ci := range checkins {
-		c.Writer.Write([]byte(fmt.Sprintf("%s,%s,%d,%d,%s\n",
-			ci.ID.Hex(), ci.Description, ci.Score, ci.Status, ci.CreatedAt.Format("2006-01-02"))))
+		w.Write([]string{
+			ci.ID.Hex(),
+			ci.Description,
+			strconv.Itoa(ci.Score),
+			strconv.Itoa(int(ci.Status)),
+			ci.CreatedAt.Format("2006-01-02 15:04"),
+		})
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		h.logger.Error("csv export write failed", zap.Error(err))
 	}
 }
 
