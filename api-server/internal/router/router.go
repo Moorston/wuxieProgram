@@ -61,7 +61,7 @@ func Setup(
 		api.POST("/auth/refresh", middleware.LoginRateLimit(), authH.Refresh)
 
 		// 需要鉴权的接口
-		auth := api.Group("", middleware.Auth(jwtMgr, blacklist), middleware.UserStatusCheck(userRepo.IsBanned))
+		auth := api.Group("", middleware.Auth(jwtMgr, blacklist), middleware.UserStatusCheck(userRepo.IsBanned, middleware.NewStatusCache(30*time.Second)))
 		{
 			// 用户
 			auth.GET("/user/profile", userH.GetProfile)

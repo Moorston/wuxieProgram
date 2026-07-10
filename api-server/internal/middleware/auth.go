@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
+	"time"
 
 	"wuxie-api/pkg/jwt"
 	"wuxie-api/pkg/response"
@@ -78,10 +80,47 @@ func AdminOnly() gin.HandlerFunc {
 	}
 }
 
+// StatusCache 用户状态缓存（避免每次请求查 DB）
+type StatusCache struct {
+	entries map[string]*statusCacheEntry
+	mu      sync.RWMutex
+	ttl     time.Duration
+}
+
+type statusCacheEntry struct {
+	banned  bool
+	expires time.Time
+}
+
+func NewStatusCache(ttl time.Duration) *StatusCache {
+	return &StatusCache{
+		entries: make(map[string]*statusCacheEntry),
+		ttl:     ttl,
+	}
+}
+
+func (sc *StatusCache) Get(userID string) (banned, found bool) {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	entry, ok := sc.entries[userID]
+	if !ok || time.Now().After(entry.expires) {
+		return false, false
+	}
+	return entry.banned, true
+}
+
+func (sc *StatusCache) Set(userID string, banned bool) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.entries[userID] = &statusCacheEntry{
+		banned:  banned,
+		expires: time.Now().Add(sc.ttl),
+	}
+}
+
 // UserStatusCheck 检查用户是否被封禁
 // 应在 Auth 中间件之后使用，依赖 user_id 已被设置到 context
-// TODO: 生产环境应增加 Redis 缓存（TTL 30s），避免每次请求查 DB
-func UserStatusCheck(checker StatusChecker) gin.HandlerFunc {
+func UserStatusCheck(checker StatusChecker, cache *StatusCache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetString("user_id")
 		if userID == "" {
@@ -97,12 +136,30 @@ func UserStatusCheck(checker StatusChecker) gin.HandlerFunc {
 			return
 		}
 
+		// 检查缓存
+		if cache != nil {
+			if banned, found := cache.Get(userID); found {
+				if banned {
+					response.Forbidden(c, "account has been suspended")
+					c.Abort()
+					return
+				}
+				c.Next()
+				return
+			}
+		}
+
 		banned, err := checker(c.Request.Context(), oid)
 		if err != nil {
 			// 查询失败不阻断请求，只记录日志
 			log.Printf("[WARN] user status check failed for %s: %v", userID, err)
 			c.Next()
 			return
+		}
+
+		// 写入缓存
+		if cache != nil {
+			cache.Set(userID, banned)
 		}
 
 		if banned {

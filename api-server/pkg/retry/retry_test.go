@@ -3,17 +3,19 @@ package retry
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// testConfig 返回测试用配置（极短延迟）
+// testConfig 返回测试用配置（no-op sleep，零延迟）
 func testConfig() Config {
 	return Config{
 		MaxAttempts: 3,
-		BaseDelay:   1, // 1 nanosecond — 几乎无延迟
+		BaseDelay:   0,
 		IsRetryable: defaultIsRetryable,
+		SleepFunc:   func(time.Duration) {}, // no-op sleep
 	}
 }
 

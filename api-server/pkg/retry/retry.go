@@ -7,9 +7,10 @@ import (
 
 // Config 重试配置
 type Config struct {
-	MaxAttempts int           // 最大尝试次数（含首次）
-	BaseDelay   time.Duration // 基础退避延迟
-	IsRetryable func(error) bool // 判断是否值得重试
+	MaxAttempts int                // 最大尝试次数（含首次）
+	BaseDelay   time.Duration      // 基础退避延迟
+	IsRetryable func(error) bool   // 判断是否值得重试
+	SleepFunc   func(time.Duration) // sleep 函数（测试可注入 no-op）
 }
 
 // DefaultConfig 返回默认配置（3 次尝试，500ms 基础退避）
@@ -18,19 +19,24 @@ func DefaultConfig() Config {
 		MaxAttempts: 3,
 		BaseDelay:   500 * time.Millisecond,
 		IsRetryable: defaultIsRetryable,
+		SleepFunc:   time.Sleep,
 	}
 }
 
 // Do 执行带重试的操作
-// fn 返回 (result, retryable_error) 或 (result, non_retryable_error)
 func Do[T any](cfg Config, fn func() (T, error)) (T, error) {
 	var zero T
 	var lastErr error
 
+	sleep := cfg.SleepFunc
+	if sleep == nil {
+		sleep = time.Sleep
+	}
+
 	for attempt := 0; attempt < cfg.MaxAttempts; attempt++ {
 		if attempt > 0 {
 			delay := cfg.BaseDelay * time.Duration(1<<(attempt-1))
-			time.Sleep(delay)
+			sleep(delay)
 		}
 
 		result, err := fn()
