@@ -61,6 +61,11 @@ func (s *GroupAnnouncementService) Create(ctx context.Context, groupID, authorID
 
 // List 获取团组公告列表
 func (s *GroupAnnouncementService) List(ctx context.Context, groupID primitive.ObjectID, page, pageSize int) ([]*model.GroupAnnouncement, int64, error) {
+	// 验证团组存在
+	if _, err := s.groupRepo.FindByID(ctx, groupID); err != nil {
+		return nil, 0, ErrGroupNotFound
+	}
+
 	announcements, total, err := s.annRepo.ListByGroup(ctx, groupID, page, pageSize)
 	if err != nil {
 		return nil, 0, err
@@ -71,7 +76,11 @@ func (s *GroupAnnouncementService) List(ctx context.Context, groupID primitive.O
 	for _, a := range announcements {
 		authorIDs = append(authorIDs, a.AuthorID)
 	}
-	users, _ := s.userRepo.FindByIDs(ctx, authorIDs)
+	users, err := s.userRepo.FindByIDs(ctx, authorIDs)
+	if err != nil {
+		s.logger.Warn("list announcements: load authors failed", zap.Error(err))
+		users = []*model.User{}
+	}
 	userMap := make(map[primitive.ObjectID]*model.User, len(users))
 	for _, u := range users {
 		userMap[u.ID] = u
@@ -96,7 +105,7 @@ func (s *GroupAnnouncementService) Delete(ctx context.Context, annID, userID pri
 		return ErrGroupNotFound
 	}
 	if ann.AuthorID != userID && !group.IsLeader(userID) {
-		return ErrAccessDenied
+		return ErrAnnouncementAccessDenied
 	}
 
 	return s.annRepo.Delete(ctx, annID, ann.AuthorID)
@@ -105,7 +114,7 @@ func (s *GroupAnnouncementService) Delete(ctx context.Context, annID, userID pri
 // 错误定义
 var (
 	ErrAnnouncementNotFound = &announcementError{"announcement not found"}
-	ErrAccessDenied         = &announcementError{"access denied"}
+	ErrAnnouncementAccessDenied = &announcementError{"access denied: not author or group leader"}
 )
 
 type announcementError struct{ msg string }

@@ -96,8 +96,8 @@ func (h *GroupAnnouncementHandler) Delete(c *gin.Context) {
 			response.NotFound(c, "announcement not found")
 			return
 		}
-		if err == service.ErrAccessDenied {
-			response.Forbidden(c, "access denied")
+		if err == service.ErrAnnouncementAccessDenied {
+			response.Forbidden(c, "access denied: not author or group leader")
 			return
 		}
 		h.logger.Error("delete announcement failed", zap.Error(err))
