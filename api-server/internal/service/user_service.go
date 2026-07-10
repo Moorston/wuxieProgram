@@ -35,7 +35,7 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID primitive.Object
 
 // UpdateDefaultVisibility 更新默认打卡可见性
 func (s *UserService) UpdateDefaultVisibility(ctx context.Context, userID primitive.ObjectID, visibility model.Visibility) error {
-	if visibility < model.VisibilityPublic || visibility > model.VisibilityPrivate {
+	if !visibility.IsValid() {
 		return ErrInvalidVisibility
 	}
 	return s.userRepo.Update(ctx, userID, bson.M{"default_visibility": visibility})

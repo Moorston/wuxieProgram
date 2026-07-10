@@ -15,15 +15,6 @@ const (
 	CheckinStatusFailed     CheckinStatus = 3 // 失败
 )
 
-// Visibility 可见性
-type Visibility int
-
-const (
-	VisibilityPublic  Visibility = 0 // 公开
-	VisibilityGroup   Visibility = 1 // 仅团组可见
-	VisibilityPrivate Visibility = 2 // 仅自己可见
-)
-
 type Checkin struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID      primitive.ObjectID `bson:"user_id" json:"user_id"`
@@ -52,7 +43,8 @@ func (c *Checkin) IsPublic() bool {
 }
 
 // IsVisibleTo 检查对指定用户是否可见
-func (c *Checkin) IsVisibleTo(viewerID primitive.ObjectID) bool {
+// groupMemberIDs: 查看者所属团组的成员 ID 列表（可选，用于团组可见性判断）
+func (c *Checkin) IsVisibleTo(viewerID primitive.ObjectID, groupMemberIDs ...[]primitive.ObjectID) bool {
 	// 作者始终可见
 	if c.UserID == viewerID {
 		return true
@@ -61,7 +53,20 @@ func (c *Checkin) IsVisibleTo(viewerID primitive.ObjectID) bool {
 	if c.Visibility == VisibilityPublic {
 		return true
 	}
-	// 团组和私有：非作者不可见（团组过滤在查询层处理）
+	// 私有：仅作者可见
+	if c.Visibility == VisibilityPrivate {
+		return false
+	}
+	// 团组可见：检查查看者是否与作者在同一团组
+	if c.Visibility == VisibilityGroup && len(groupMemberIDs) > 0 {
+		for _, ids := range groupMemberIDs {
+			for _, id := range ids {
+				if id == c.UserID {
+					return true
+				}
+			}
+		}
+	}
 	return false
 }
 
