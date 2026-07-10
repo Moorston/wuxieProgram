@@ -10,13 +10,13 @@ export interface ShareOptions {
   imageUrl?: string
 }
 
-/** 默认分享图片 */
+/** 默认分享图片（需确保文件存在于 static/ 目录） */
 const DEFAULT_SHARE_IMAGE = '/static/share-default.png'
 
 /**
  * 生成打卡分享配置
  */
-export function getCheckinShareOptions(checkinId: string, nickname: string, description: string): ShareOptions {
+export function getCheckinShareOptions(checkinId: string, nickname: string, description: string, coverUrl?: string): ShareOptions {
   const title = nickname
     ? `${nickname} 的武术训练打卡`
     : '武术训练打卡'
@@ -24,7 +24,7 @@ export function getCheckinShareOptions(checkinId: string, nickname: string, desc
   return {
     title: title + desc,
     path: `/pages/video-detail/video-detail?id=${checkinId}`,
-    imageUrl: DEFAULT_SHARE_IMAGE,
+    imageUrl: coverUrl || DEFAULT_SHARE_IMAGE,
   }
 }
 
@@ -73,9 +73,12 @@ export function handleShareMessage(options?: ShareOptions) {
  */
 export function handleShareTimeline(options?: ShareOptions) {
   const opts = options || getDefaultShareOptions()
+  // 从 path 中提取查询参数作为 query
+  const [pagePath, queryStr] = opts.path.split('?')
   return {
     title: opts.title,
-    query: `path=${encodeURIComponent(opts.path)}`,
+    path: pagePath,
+    query: queryStr || '',
     imageUrl: opts.imageUrl,
   }
 }
