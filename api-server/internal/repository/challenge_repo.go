@@ -166,6 +166,22 @@ func (r *ChallengeParticipantRepo) ListByChallenge(ctx context.Context, challeng
 	return participants, nil
 }
 
+// ListByUser 获取用户参与的所有挑战
+func (r *ChallengeParticipantRepo) ListByUser(ctx context.Context, userID primitive.ObjectID) ([]*model.ChallengeParticipant, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "joined_at", Value: -1}})
+	cursor, err := r.coll.Find(ctx, bson.M{"user_id": userID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var participants []*model.ChallengeParticipant
+	if err := cursor.All(ctx, &participants); err != nil {
+		return nil, err
+	}
+	return participants, nil
+}
+
 func (r *ChallengeParticipantRepo) EnsureIndexes(ctx context.Context) error {
 	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "challenge_id", Value: 1}, {Key: "user_id", Value: 1}}, Options: options.Index().SetUnique(true)},
@@ -188,6 +204,7 @@ type ChallengeParticipantRepoInterface interface {
 	FindByUserAndChallenge(ctx context.Context, userID, challengeID primitive.ObjectID) (*model.ChallengeParticipant, error)
 	IncrementCompletedDays(ctx context.Context, userID, challengeID primitive.ObjectID, duration int) error
 	ListByChallenge(ctx context.Context, challengeID primitive.ObjectID) ([]*model.ChallengeParticipant, error)
+	ListByUser(ctx context.Context, userID primitive.ObjectID) ([]*model.ChallengeParticipant, error)
 }
 
 var _ ChallengeRepoInterface = (*ChallengeRepo)(nil)

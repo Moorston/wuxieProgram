@@ -79,12 +79,20 @@ func (s *ChallengeService) GetChallenge(ctx context.Context, id primitive.Object
 	}
 
 	// 填充参与者信息
-	participants, _ := s.participantRepo.ListByChallenge(ctx, id)
+	participants, err := s.participantRepo.ListByChallenge(ctx, id)
+	if err != nil {
+		s.logger.Warn("get challenge: load participants failed", zap.String("challenge_id", id.Hex()), zap.Error(err))
+		participants = []*model.ChallengeParticipant{}
+	}
 	userIDs := make([]primitive.ObjectID, 0, len(participants))
 	for _, p := range participants {
 		userIDs = append(userIDs, p.UserID)
 	}
-	users, _ := s.userRepo.FindByIDs(ctx, userIDs)
+	users, err := s.userRepo.FindByIDs(ctx, userIDs)
+	if err != nil {
+		s.logger.Warn("get challenge: load users failed", zap.Error(err))
+		users = []*model.User{}
+	}
 	userMap := make(map[primitive.ObjectID]*model.User, len(users))
 	for _, u := range users {
 		userMap[u.ID] = u
@@ -95,7 +103,10 @@ func (s *ChallengeService) GetChallenge(ctx context.Context, id primitive.Object
 	challenge.Participants = participants
 
 	// 填充创建者信息
-	creator, _ := s.userRepo.FindByID(ctx, challenge.CreatorID)
+	creator, err := s.userRepo.FindByID(ctx, challenge.CreatorID)
+	if err != nil {
+		s.logger.Warn("get challenge: load creator failed", zap.String("challenge_id", id.Hex()), zap.Error(err))
+	}
 	challenge.Creator = creator
 
 	return challenge, nil
@@ -132,13 +143,36 @@ func (s *ChallengeService) JoinChallenge(ctx context.Context, challengeID, userI
 }
 
 // RecordCheckin 记录打卡（在挑战期间打卡时调用）
+// 应由 CheckinService 在打卡成功后调用
 func (s *ChallengeService) RecordCheckin(ctx context.Context, userID primitive.ObjectID) {
 	// 查询用户参与的所有进行中挑战
-	// 简化实现：遍历所有活跃挑战检查参与状态
-	// 生产环境应优化为按用户查询其参与的挑战
-	s.logger.Debug("recording checkin for challenge",
-		zap.String("user_id", userID.Hex()),
-	)
+	participants, err := s.participantRepo.ListByUser(ctx, userID)
+	if err != nil {
+		s.logger.Warn("record checkin: list user challenges failed", zap.String("user_id", userID.Hex()), zap.Error(err))
+		return
+	}
+
+	now := time.Now()
+	for _, p := range participants {
+		challenge, err := s.challengeRepo.FindByID(ctx, p.ChallengeID)
+		if err != nil || !challenge.IsActive() {
+			continue
+		}
+		// 检查今天是否已打卡（防止重复计数）
+		if err := s.participantRepo.IncrementCompletedDays(ctx, userID, p.ChallengeID, challenge.Duration); err != nil {
+			s.logger.Warn("record checkin: increment failed",
+				zap.String("user_id", userID.Hex()),
+				zap.String("challenge_id", p.ChallengeID.Hex()),
+				zap.Error(err),
+			)
+		} else {
+			s.logger.Info("challenge checkin recorded",
+				zap.String("user_id", userID.Hex()),
+				zap.String("challenge_id", p.ChallengeID.Hex()),
+				zap.Time("time", now),
+			)
+		}
+	}
 }
 
 // GetChallengeRanking 获取挑战排行榜
@@ -160,7 +194,11 @@ func (s *ChallengeService) GetChallengeRanking(ctx context.Context, challengeID 
 	for _, p := range participants {
 		userIDs = append(userIDs, p.UserID)
 	}
-	users, _ := s.userRepo.FindByIDs(ctx, userIDs)
+	users, err := s.userRepo.FindByIDs(ctx, userIDs)
+	if err != nil {
+		s.logger.Warn("get challenge ranking: load users failed", zap.Error(err))
+		users = []*model.User{}
+	}
 	userMap := make(map[primitive.ObjectID]*model.User, len(users))
 	for _, u := range users {
 		userMap[u.ID] = u
