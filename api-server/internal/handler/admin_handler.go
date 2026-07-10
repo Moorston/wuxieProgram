@@ -36,7 +36,7 @@ func (h *AdminHandler) Login(c *gin.Context) {
 	token, err := h.adminService.Login(req.Username, req.Password)
 	if err != nil {
 		h.logger.Warn("admin login failed", zap.Error(err))
-		response.Unauthorized(c, "invalid credentials")
+		respondWithError(c, err)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *AdminHandler) GetUserDetail(c *gin.Context) {
 
 	detail, err := h.adminService.GetUserDetail(c.Request.Context(), id)
 	if err != nil {
-		response.NotFound(c, "user not found")
+		respondWithError(c, err)
 		return
 	}
 	response.Success(c, detail)

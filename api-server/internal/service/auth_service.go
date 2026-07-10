@@ -14,6 +14,7 @@ import (
 	"wuxie-api/internal/config"
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
+	apperrors "wuxie-api/pkg/errors"
 	"wuxie-api/pkg/jwt"
 	"wuxie-api/pkg/retry"
 
@@ -84,20 +85,20 @@ func (s *AuthService) WXLogin(ctx context.Context, code string, nickname, avatar
 func (s *AuthService) RefreshToken(ctx context.Context, refreshTokenStr string) (string, string, error) {
 	claims, err := s.jwtMgr.ParseRefreshToken(refreshTokenStr)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid refresh token: %w", err)
+		return "", "", fmt.Errorf("%w: %v", apperrors.ErrInvalidRefresh, err)
 	}
 
 	// 验证用户仍然存在且未被封禁
 	oid, err := primitive.ObjectIDFromHex(claims.UserID)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid user id in refresh token")
+		return "", "", apperrors.ErrInvalidUserID
 	}
 	user, err := s.userRepo.FindByID(ctx, oid)
 	if err != nil {
-		return "", "", fmt.Errorf("user not found: %w", err)
+		return "", "", apperrors.ErrUserNotFound
 	}
 	if user.IsBanned() {
-		return "", "", fmt.Errorf("account suspended")
+		return "", "", apperrors.ErrAccountSuspended
 	}
 
 	// 生成新的双 token

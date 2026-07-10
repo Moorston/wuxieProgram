@@ -10,6 +10,7 @@ import (
 	"wuxie-api/internal/config"
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
+	apperrors "wuxie-api/pkg/errors"
 	"wuxie-api/pkg/jwt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -69,12 +70,12 @@ type UserDetail struct {
 
 func (s *AdminService) Login(username, password string) (string, error) {
 	if s.cfg.Admin == nil {
-		return "", fmt.Errorf("admin not configured")
+		return "", apperrors.ErrAdminNotConfigured
 	}
 	usernameMatch := subtle.ConstantTimeCompare([]byte(username), []byte(s.cfg.Admin.Username))
 	passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(s.cfg.Admin.Password))
 	if usernameMatch&passwordMatch != 1 {
-		return "", fmt.Errorf("invalid credentials")
+		return "", apperrors.ErrInvalidCredentials
 	}
 
 	token, err := s.jwtMgr.GenerateWithRole("admin", model.UserRoleAdmin)
@@ -92,7 +93,7 @@ func (s *AdminService) GetUsers(ctx context.Context, page, pageSize int, keyword
 func (s *AdminService) GetUserDetail(ctx context.Context, userID primitive.ObjectID) (*UserDetail, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found: %w", err)
+		return nil, fmt.Errorf("%w: %v", apperrors.ErrUserNotFound, err)
 	}
 
 	checkins, _, err := s.checkinRepo.ListByUser(ctx, userID, 1, 20)

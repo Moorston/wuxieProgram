@@ -114,7 +114,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 			zap.String("client_ip", c.ClientIP()),
 			zap.Error(err),
 		)
-		response.Unauthorized(c, "invalid or expired refresh token")
+		respondWithError(c, err)
 		return
 	}
 
