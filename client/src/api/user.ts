@@ -15,3 +15,11 @@ export function getPrivacySettings() {
 export function updatePrivacySettings(visibility: number) {
   return request({ url: '/api/user/privacy', method: 'PUT', data: { visibility } })
 }
+
+export function getUserLevel() {
+  return request({ url: '/api/user/level' })
+}
+
+export function exportMyCheckins() {
+  return request({ url: '/api/checkin/export' })
+}

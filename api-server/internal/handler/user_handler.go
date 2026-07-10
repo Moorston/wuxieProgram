@@ -112,3 +112,19 @@ func (h *UserHandler) UpdatePrivacySettings(c *gin.Context) {
 
 	response.Success(c, nil)
 }
+
+// GetUserLevel 获取用户等级
+func (h *UserHandler) GetUserLevel(c *gin.Context) {
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	levelInfo, err := h.userService.GetUserLevel(c.Request.Context(), oid)
+	if err != nil {
+		response.InternalError(c, "internal server error")
+		return
+	}
+
+	response.Success(c, levelInfo)
+}

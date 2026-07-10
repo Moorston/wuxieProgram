@@ -68,12 +68,14 @@ func Setup(
 			auth.PUT("/user/profile", userH.UpdateProfile)
 			auth.GET("/user/privacy", userH.GetPrivacySettings)
 			auth.PUT("/user/privacy", userH.UpdatePrivacySettings)
+			auth.GET("/user/level", userH.GetUserLevel)
 			auth.POST("/auth/logout", authH.Logout)
 
 			// 打卡
 			auth.POST("/checkin/prepare", checkinH.Prepare)
 			auth.GET("/checkin/list", checkinH.GetList)
 			auth.GET("/checkin/mine", checkinH.GetMine)
+			auth.GET("/checkin/export", checkinH.ExportMine)
 			auth.GET("/checkin/search", checkinH.Search)
 			auth.GET("/checkin/:id", checkinH.GetByID)
 			auth.DELETE("/checkin/:id", checkinH.Delete)

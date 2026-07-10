@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"fmt"
+	"time"
+
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
@@ -155,6 +158,29 @@ func (h *CheckinHandler) GetMine(c *gin.Context) {
 		"list":  checkins,
 		"total": total,
 	})
+}
+
+// ExportMine 导出我的打卡记录为 CSV
+func (h *CheckinHandler) ExportMine(c *gin.Context) {
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	checkins, _, err := h.checkinService.GetMine(c.Request.Context(), oid, 1, 10000)
+	if err != nil {
+		response.InternalError(c, "internal server error")
+		return
+	}
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=my_checkins_%s.csv", time.Now().Format("20060102")))
+	c.Writer.Write([]byte("\xEF\xBB\xBF"))
+	c.Writer.Write([]byte("ID,描述,评分,状态,创建时间\n"))
+	for _, ci := range checkins {
+		c.Writer.Write([]byte(fmt.Sprintf("%s,%s,%d,%d,%s\n",
+			ci.ID.Hex(), ci.Description, ci.Score, ci.Status, ci.CreatedAt.Format("2006-01-02"))))
+	}
 }
 
 func (h *CheckinHandler) Delete(c *gin.Context) {
