@@ -9,6 +9,7 @@ import (
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
@@ -163,7 +164,13 @@ func (s *GroupService) RemoveMember(ctx context.Context, groupID, operatorID, ta
 		return ErrCannotRemoveLeader
 	}
 
-	return s.groupRepo.RemoveMember(ctx, groupID, targetID)
+	if err := s.groupRepo.RemoveMember(ctx, groupID, targetID); err != nil {
+		return err
+	}
+
+	// 清除用户的团组关联
+	_ = s.userRepo.Update(ctx, targetID, bson.M{"group_id": primitive.NilObjectID})
+	return nil
 }
 
 // LeaveGroup 成员主动退出团组
@@ -182,7 +189,13 @@ func (s *GroupService) LeaveGroup(ctx context.Context, groupID, userID primitive
 		return ErrLeaderCannotLeave
 	}
 
-	return s.groupRepo.RemoveMember(ctx, groupID, userID)
+	if err := s.groupRepo.RemoveMember(ctx, groupID, userID); err != nil {
+		return err
+	}
+
+	// 清除用户的团组关联
+	_ = s.userRepo.Update(ctx, userID, bson.M{"group_id": primitive.NilObjectID})
+	return nil
 }
 
 // SetLeader 转让组长（仅当前组长可操作）
@@ -198,6 +211,11 @@ func (s *GroupService) SetLeader(ctx context.Context, groupID, operatorID, newLe
 
 	if !group.HasMember(newLeaderID) {
 		return ErrNotGroupMember
+	}
+
+	// 新旧组长相同，无需操作
+	if operatorID == newLeaderID {
+		return nil
 	}
 
 	return s.groupRepo.SetLeader(ctx, groupID, newLeaderID)
