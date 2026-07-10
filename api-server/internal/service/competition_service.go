@@ -42,6 +42,15 @@ func (s *CompetitionService) CreateCompetition(ctx context.Context, comp *model.
 	if comp.Status == 0 {
 		comp.Status = model.CompetitionStatusDraft
 	}
+
+	// 验证日期
+	if comp.StartDate.IsZero() || comp.EndDate.IsZero() {
+		return ErrInvalidCompetitionDate
+	}
+	if !comp.EndDate.After(comp.StartDate) {
+		return ErrInvalidCompetitionDate
+	}
+
 	return s.compRepo.Create(ctx, comp)
 }
 
@@ -116,6 +125,22 @@ func (s *CompetitionService) ScoreEntry(ctx context.Context, entryID, judgeID pr
 	if score < 0 || score > 100 {
 		return ErrInvalidScore
 	}
+
+	// 验证参赛作品存在
+	entry, err := s.entryRepo.FindByID(ctx, entryID)
+	if err != nil {
+		return ErrEntryNotFound
+	}
+
+	// 验证赛事仍在进行中
+	comp, err := s.compRepo.FindByID(ctx, entry.CompetitionID)
+	if err != nil {
+		return ErrCompetitionNotFound
+	}
+	if comp.Status != model.CompetitionStatusActive {
+		return ErrCompetitionNotActive
+	}
+
 	return s.entryRepo.Score(ctx, entryID, judgeID, score)
 }
 
@@ -133,12 +158,26 @@ func (s *CompetitionService) GetRanking(ctx context.Context, competitionID primi
 		return nil, err
 	}
 
+	if len(entries) == 0 {
+		return []RankingEntry{}, nil
+	}
+
+	// 批量获取用户信息（避免 N+1 查询）
+	userIDs := make([]primitive.ObjectID, 0, len(entries))
+	for _, entry := range entries {
+		userIDs = append(userIDs, entry.UserID)
+	}
+	users, _ := s.userRepo.FindByIDs(ctx, userIDs)
+	userMap := make(map[primitive.ObjectID]*model.User, len(users))
+	for _, u := range users {
+		userMap[u.ID] = u
+	}
+
 	ranking := make([]RankingEntry, 0, len(entries))
 	for i, entry := range entries {
-		user, _ := s.userRepo.FindByID(ctx, entry.UserID)
 		ranking = append(ranking, RankingEntry{
 			Rank:  i + 1,
-			User:  user,
+			User:  userMap[entry.UserID],
 			Score: entry.Score,
 			Entry: entry,
 		})
@@ -149,12 +188,14 @@ func (s *CompetitionService) GetRanking(ctx context.Context, competitionID primi
 
 // 错误定义
 var (
-	ErrCompetitionNotFound = &competitionError{"competition not found"}
-	ErrCompetitionNotActive = &competitionError{"competition is not active"}
-	ErrAlreadySubmitted    = &competitionError{"already submitted to this competition"}
-	ErrInvalidScore        = &competitionError{"score must be between 0 and 100"}
-	ErrCheckinNotFound     = &competitionError{"checkin not found"}
-	ErrNotCheckinOwner     = &competitionError{"not checkin owner"}
+	ErrCompetitionNotFound   = &competitionError{"competition not found"}
+	ErrCompetitionNotActive  = &competitionError{"competition is not active"}
+	ErrAlreadySubmitted      = &competitionError{"already submitted to this competition"}
+	ErrInvalidScore          = &competitionError{"score must be between 0 and 100"}
+	ErrCheckinNotFound       = &competitionError{"checkin not found"}
+	ErrNotCheckinOwner       = &competitionError{"not checkin owner"}
+	ErrEntryNotFound         = &competitionError{"entry not found"}
+	ErrInvalidCompetitionDate = &competitionError{"invalid competition dates: start_date must be before end_date"}
 )
 
 type competitionError struct {

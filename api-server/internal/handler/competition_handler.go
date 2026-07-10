@@ -60,6 +60,10 @@ func (h *CompetitionHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.compService.CreateCompetition(c.Request.Context(), comp); err != nil {
+		if err == service.ErrInvalidCompetitionDate {
+			response.BadRequest(c, "invalid competition dates")
+			return
+		}
 		h.logger.Error("create competition failed", zap.Error(err))
 		response.InternalError(c, "internal server error")
 		return
@@ -238,6 +242,14 @@ func (h *CompetitionHandler) Score(c *gin.Context) {
 	if err := h.compService.ScoreEntry(c.Request.Context(), entryID, oid, req.Score); err != nil {
 		if err == service.ErrInvalidScore {
 			response.BadRequest(c, "score must be between 0 and 100")
+			return
+		}
+		if err == service.ErrEntryNotFound {
+			response.NotFound(c, "entry not found")
+			return
+		}
+		if err == service.ErrCompetitionNotActive {
+			response.BadRequest(c, "competition is not active")
 			return
 		}
 		h.logger.Error("score entry failed", zap.Error(err))

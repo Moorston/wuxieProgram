@@ -46,6 +46,16 @@ func (r *CompetitionEntryRepo) FindByUserAndCompetition(ctx context.Context, use
 	return &entry, nil
 }
 
+// FindByID 根据 ID 查找参赛作品
+func (r *CompetitionEntryRepo) FindByID(ctx context.Context, id primitive.ObjectID) (*model.CompetitionEntry, error) {
+	var entry model.CompetitionEntry
+	err := r.coll.FindOne(ctx, bson.M{"_id": id}).Decode(&entry)
+	if err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
 func (r *CompetitionEntryRepo) Score(ctx context.Context, entryID, judgeID primitive.ObjectID, score float64) error {
 	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": entryID}, bson.M{
 		"$set": bson.M{
@@ -118,6 +128,7 @@ func (r *CompetitionEntryRepo) EnsureIndexes(ctx context.Context) error {
 // CompetitionEntryRepoInterface 参赛作品仓库接口
 type CompetitionEntryRepoInterface interface {
 	Create(ctx context.Context, entry *model.CompetitionEntry) error
+	FindByID(ctx context.Context, id primitive.ObjectID) (*model.CompetitionEntry, error)
 	FindByUserAndCompetition(ctx context.Context, userID, competitionID primitive.ObjectID) (*model.CompetitionEntry, error)
 	Score(ctx context.Context, entryID, judgeID primitive.ObjectID, score float64) error
 	ListByCompetition(ctx context.Context, competitionID primitive.ObjectID, page, pageSize int) ([]*model.CompetitionEntry, int64, error)
