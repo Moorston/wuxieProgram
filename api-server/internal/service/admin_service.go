@@ -86,8 +86,16 @@ func (s *AdminService) GetUserDetail(ctx context.Context, userID primitive.Objec
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	checkins, _, _ := s.checkinRepo.ListByUser(ctx, userID, 1, 20)
-	insights, _, _ := s.insightRepo.ListByUser(ctx, userID, "", "", 1, 20)
+	checkins, _, err := s.checkinRepo.ListByUser(ctx, userID, 1, 20)
+	if err != nil {
+		s.logger.Warn("get user detail: load checkins failed", zap.String("user_id", userID.Hex()), zap.Error(err))
+		checkins = []*model.Checkin{}
+	}
+	insights, _, err := s.insightRepo.ListByUser(ctx, userID, "", "", 1, 20)
+	if err != nil {
+		s.logger.Warn("get user detail: load insights failed", zap.String("user_id", userID.Hex()), zap.Error(err))
+		insights = []*model.Insight{}
+	}
 
 	return &UserDetail{
 		User:     user,
@@ -168,11 +176,13 @@ func (s *AdminService) DeleteInsight(ctx context.Context, id primitive.ObjectID,
 func (s *AdminService) BatchBanUsers(ctx context.Context, userIDs []primitive.ObjectID, adminUser, ip string) (int, error) {
 	count := 0
 	for _, id := range userIDs {
-		if err := s.userRepo.Update(ctx, id, bson.M{"status": model.UserStatusBanned}); err == nil {
+		if err := s.userRepo.Update(ctx, id, bson.M{"status": model.UserStatusBanned}); err != nil {
+			s.logger.Warn("batch ban: failed for user", zap.String("user_id", id.Hex()), zap.Error(err))
+		} else {
 			count++
 		}
 	}
-	s.logAction(ctx, adminUser, "batch_ban_users", fmt.Sprintf("%d users", count), "user", fmt.Sprintf("批量封禁 %d 个用户", count), ip)
+	s.logAction(ctx, adminUser, "batch_ban_users", fmt.Sprintf("%d users", count), "user", fmt.Sprintf("批量封禁 %d/%d 个用户", count, len(userIDs)), ip)
 	return count, nil
 }
 
@@ -180,11 +190,13 @@ func (s *AdminService) BatchBanUsers(ctx context.Context, userIDs []primitive.Ob
 func (s *AdminService) BatchDeleteCheckins(ctx context.Context, ids []primitive.ObjectID, adminUser, ip string) (int, error) {
 	count := 0
 	for _, id := range ids {
-		if err := s.checkinRepo.DeleteByID(ctx, id); err == nil {
+		if err := s.checkinRepo.DeleteByID(ctx, id); err != nil {
+			s.logger.Warn("batch delete: failed for checkin", zap.String("checkin_id", id.Hex()), zap.Error(err))
+		} else {
 			count++
 		}
 	}
-	s.logAction(ctx, adminUser, "batch_delete_checkins", fmt.Sprintf("%d checkins", count), "checkin", fmt.Sprintf("批量删除 %d 条打卡", count), ip)
+	s.logAction(ctx, adminUser, "batch_delete_checkins", fmt.Sprintf("%d checkins", count), "checkin", fmt.Sprintf("批量删除 %d/%d 条打卡", count, len(ids)), ip)
 	return count, nil
 }
 
@@ -192,11 +204,13 @@ func (s *AdminService) BatchDeleteCheckins(ctx context.Context, ids []primitive.
 func (s *AdminService) BatchDeleteInsights(ctx context.Context, ids []primitive.ObjectID, adminUser, ip string) (int, error) {
 	count := 0
 	for _, id := range ids {
-		if err := s.insightRepo.DeleteByID(ctx, id); err == nil {
+		if err := s.insightRepo.DeleteByID(ctx, id); err != nil {
+			s.logger.Warn("batch delete: failed for insight", zap.String("insight_id", id.Hex()), zap.Error(err))
+		} else {
 			count++
 		}
 	}
-	s.logAction(ctx, adminUser, "batch_delete_insights", fmt.Sprintf("%d insights", count), "insight", fmt.Sprintf("批量删除 %d 条感悟", count), ip)
+	s.logAction(ctx, adminUser, "batch_delete_insights", fmt.Sprintf("%d insights", count), "insight", fmt.Sprintf("批量删除 %d/%d 条感悟", count, len(ids)), ip)
 	return count, nil
 }
 
@@ -224,14 +238,16 @@ func (s *AdminService) logAction(ctx context.Context, adminUser, action, targetI
 	if s.auditLog == nil {
 		return
 	}
-	_ = s.auditLog.Create(ctx, &model.AuditLog{
+	if err := s.auditLog.Create(ctx, &model.AuditLog{
 		AdminUser:  adminUser,
 		Action:     action,
 		TargetID:   targetID,
 		TargetType: targetType,
 		Detail:     detail,
 		IP:         ip,
-	})
+	}); err != nil {
+		s.logger.Error("failed to write audit log", zap.String("action", action), zap.Error(err))
+	}
 }
 
 func validatePagination(page, pageSize int) (int, int) {
