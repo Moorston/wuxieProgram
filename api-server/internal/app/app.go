@@ -129,6 +129,9 @@ func New(cfg *config.Config) (*App, error) {
 	// Admin Service
 	adminService := service.NewAdminService(userRepo, checkinRepo, insightRepo, auditLogRepo, jwtMgr, cfg, logger)
 
+	// Analytics Service
+	analyticsService := service.NewAnalyticsService(checkinRepo, userRepo, logger)
+
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)
 	userH := handler.NewUserHandler(userService, logger)
@@ -141,9 +144,10 @@ func New(cfg *config.Config) (*App, error) {
 	insightH := handler.NewInsightHandler(insightService, logger)
 	resourceH := handler.NewResourceHandler(resourceService, logger)
 	adminH := handler.NewAdminHandler(adminService, logger)
+	analyticsH := handler.NewAnalyticsHandler(analyticsService)
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
 
 	// HTTP Server
 	addr := ":" + cfg.Server.Port

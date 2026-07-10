@@ -25,6 +25,7 @@ func Setup(
 	notifH *handler.NotificationHandler,
 	insightH *handler.InsightHandler,
 	resourceH *handler.ResourceHandler,
+	analyticsH *handler.AnalyticsHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -117,6 +118,11 @@ func Setup(
 			auth.PUT("/insight/:id", insightH.Update)
 			auth.DELETE("/insight/:id", insightH.Delete)
 			auth.POST("/insight/:id/like", insightH.Like)
+
+			// 数据分析
+			auth.GET("/analytics/checkin-heatmap", analyticsH.GetCheckinHeatmap)
+			auth.GET("/analytics/checkin-trend", analyticsH.GetCheckinTrend)
+			auth.GET("/analytics/overview", analyticsH.GetOverview)
 
 			// 个人资料库
 			auth.GET("/resource/upload/presign", resourceH.Presign)

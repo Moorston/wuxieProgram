@@ -77,3 +77,6 @@ export {
   getResourceTags,
   getResourceStats,
 } from './resource'
+
+// 数据分析
+export { getCheckinHeatmap, getCheckinTrend, getAnalyticsOverview } from './analytics'

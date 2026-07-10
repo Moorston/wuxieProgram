@@ -167,6 +167,13 @@
     {
       "path": "pages/resource/stats",
       "style": { "navigationBarTitleText": "存储统计" }
+    },
+    {
+      "path": "pages/analytics/overview",
+      "style": {
+        "navigationBarTitleText": "数据概览",
+        "enablePullDownRefresh": true
+      }
     }
   ],
   "globalStyle": {
