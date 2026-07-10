@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -65,6 +66,9 @@ func (r *RankHistoryRepo) GetUserHistory(ctx context.Context, userID primitive.O
 	if err := cursor.All(ctx, &history); err != nil {
 		return nil, err
 	}
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
 
 	// 聚合为每天一个数据点（取当天最新快照）
 	dayMap := make(map[string]*model.RankHistory)
@@ -85,14 +89,10 @@ func (r *RankHistoryRepo) GetUserHistory(ctx context.Context, userID primitive.O
 		})
 	}
 
-	// 简单排序（按日期升序）
-	for i := 0; i < len(points); i++ {
-		for j := i + 1; j < len(points); j++ {
-			if points[j].Date < points[i].Date {
-				points[i], points[j] = points[j], points[i]
-			}
-		}
-	}
+	// 按日期升序排序
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Date < points[j].Date
+	})
 
 	return points, nil
 }
@@ -104,11 +104,3 @@ func (r *RankHistoryRepo) EnsureIndexes(ctx context.Context) error {
 	})
 	return err
 }
-
-// RankHistoryRepoInterface 排名历史仓库接口
-type RankHistoryRepoInterface interface {
-	SaveSnapshot(ctx context.Context, entries []*model.RankEntry, period model.RankPeriod) error
-	GetUserHistory(ctx context.Context, userID primitive.ObjectID, period model.RankPeriod, days int) ([]model.RankTrendPoint, error)
-}
-
-var _ RankHistoryRepoInterface = (*RankHistoryRepo)(nil)
