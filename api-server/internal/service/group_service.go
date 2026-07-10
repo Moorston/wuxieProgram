@@ -72,7 +72,11 @@ func (s *GroupService) GetDetail(ctx context.Context, id primitive.ObjectID) (*m
 		return nil, err
 	}
 
-	users, _ := s.userRepo.FindByIDs(ctx, group.MemberIDs)
+	users, err := s.userRepo.FindByIDs(ctx, group.MemberIDs)
+	if err != nil {
+		s.logger.Warn("get group detail: load members failed", zap.String("group_id", id.Hex()), zap.Error(err))
+		users = []*model.User{}
+	}
 	group.Members = users
 	for _, u := range users {
 		if u.ID == group.LeaderID {
@@ -110,6 +114,10 @@ func (s *GroupService) GenerateInviteCode(ctx context.Context, groupID, userID p
 
 // JoinByInviteCode 通过邀请码加入团组
 func (s *GroupService) JoinByInviteCode(ctx context.Context, userID primitive.ObjectID, code string) (*model.Group, error) {
+	if code == "" {
+		return nil, ErrInvalidInviteCode
+	}
+
 	group, err := s.groupRepo.FindByInviteCode(ctx, code)
 	if err != nil {
 		return nil, ErrInvalidInviteCode
@@ -124,7 +132,15 @@ func (s *GroupService) JoinByInviteCode(ctx context.Context, userID primitive.Ob
 		return nil, fmt.Errorf("add member failed: %w", err)
 	}
 
-	return group, nil
+	// 重新获取团组（包含新成员）
+	updatedGroup, err := s.groupRepo.FindByID(ctx, group.ID)
+	if err != nil {
+		// 降级：返回旧数据但不报错
+		group.MemberIDs = append(group.MemberIDs, userID)
+		return group, nil
+	}
+
+	return updatedGroup, nil
 }
 
 // generateRandomCode 生成随机邀请码
