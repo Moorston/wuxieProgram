@@ -44,7 +44,11 @@ func (s *BadgeService) GetUserBadges(ctx context.Context, userID primitive.Objec
 	}
 
 	// 填充徽章详情
-	allBadges, _ := s.badgeRepo.FindAll(ctx)
+	allBadges, err := s.badgeRepo.FindAll(ctx)
+	if err != nil {
+		s.logger.Warn("get user badges: load badge definitions failed", zap.Error(err))
+		return badges, nil // 返回用户徽章但无详情
+	}
 	badgeMap := make(map[primitive.ObjectID]*model.Badge, len(allBadges))
 	for _, b := range allBadges {
 		badgeMap[b.ID] = b
@@ -64,12 +68,18 @@ func (s *BadgeService) CheckAndGrantBadges(ctx context.Context, userID primitive
 		return nil, err
 	}
 
+	// 批量获取用户已拥有的徽章（避免 N+1 查询）
+	userBadges, _ := s.userBadgeRepo.ListByUser(ctx, userID)
+	ownedSet := make(map[primitive.ObjectID]bool, len(userBadges))
+	for _, ub := range userBadges {
+		ownedSet[ub.BadgeID] = true
+	}
+
 	var granted []*model.Badge
 
 	for _, badge := range allBadges {
-		// 检查是否已拥有
-		has, _ := s.userBadgeRepo.HasBadge(ctx, userID, badge.ID)
-		if has {
+		// 内存中检查是否已拥有
+		if ownedSet[badge.ID] {
 			continue
 		}
 
