@@ -8,19 +8,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CORS() gin.HandlerFunc {
+func CORS(allowedOrigins []string) gin.HandlerFunc {
+	// 预构建白名单 map，避免每次请求重建
+	originSet := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		originSet[o] = true
+	}
+
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 
-		// 白名单域名列表（生产环境应替换为实际域名）
-		allowedOrigins := map[string]bool{
-			"http://localhost:8080": true,
-			"http://localhost:3000": true,
-			"http://localhost":      true,
-		}
-
-		// 仅当 Origin 在白名单中时才设置 Allow-Origin，否则不设置
-		if allowedOrigins[origin] {
+		if originSet[origin] {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Credentials", "true")
 		} else if origin == "" {
