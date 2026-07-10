@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"wuxie-api/internal/model"
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
@@ -60,6 +61,51 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 			zap.String("path", c.Request.URL.Path),
 			zap.Error(err),
 		)
+		response.InternalError(c, "internal server error")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// GetPrivacySettings 获取隐私设置
+func (h *UserHandler) GetPrivacySettings(c *gin.Context) {
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	visibility, err := h.userService.GetPrivacySettings(c.Request.Context(), oid)
+	if err != nil {
+		response.InternalError(c, "internal server error")
+		return
+	}
+
+	response.Success(c, gin.H{"default_visibility": visibility})
+}
+
+type UpdateVisibilityReq struct {
+	Visibility model.Visibility `json:"visibility"`
+}
+
+// UpdatePrivacySettings 更新隐私设置
+func (h *UserHandler) UpdatePrivacySettings(c *gin.Context) {
+	oid, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	var req UpdateVisibilityReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid params")
+		return
+	}
+
+	if err := h.userService.UpdateDefaultVisibility(c.Request.Context(), oid, req.Visibility); err != nil {
+		if err == service.ErrInvalidVisibility {
+			response.BadRequest(c, "invalid visibility value")
+			return
+		}
 		response.InternalError(c, "internal server error")
 		return
 	}

@@ -6,6 +6,7 @@ import (
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -31,3 +32,26 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID primitive.Object
 	}
 	return s.userRepo.Update(ctx, userID, update)
 }
+
+// UpdateDefaultVisibility 更新默认打卡可见性
+func (s *UserService) UpdateDefaultVisibility(ctx context.Context, userID primitive.ObjectID, visibility model.Visibility) error {
+	if visibility < model.VisibilityPublic || visibility > model.VisibilityPrivate {
+		return ErrInvalidVisibility
+	}
+	return s.userRepo.Update(ctx, userID, bson.M{"default_visibility": visibility})
+}
+
+// GetPrivacySettings 获取隐私设置
+func (s *UserService) GetPrivacySettings(ctx context.Context, userID primitive.ObjectID) (model.Visibility, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return model.VisibilityPublic, err
+	}
+	return user.DefaultVisibility, nil
+}
+
+var ErrInvalidVisibility = &visibilityError{"invalid visibility value: must be 0 (public), 1 (group), or 2 (private)"}
+
+type visibilityError struct{ msg string }
+
+func (e *visibilityError) Error() string { return e.msg }

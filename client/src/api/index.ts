@@ -5,7 +5,7 @@
 export { wxLogin, wxLogout, refreshToken } from './auth'
 
 // 用户
-export { getProfile, updateProfile } from './user'
+export { getProfile, updateProfile, getPrivacySettings, updatePrivacySettings } from './user'
 
 // 打卡
 export {

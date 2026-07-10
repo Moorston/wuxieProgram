@@ -15,6 +15,15 @@ const (
 	CheckinStatusFailed     CheckinStatus = 3 // 失败
 )
 
+// Visibility 可见性
+type Visibility int
+
+const (
+	VisibilityPublic  Visibility = 0 // 公开
+	VisibilityGroup   Visibility = 1 // 仅团组可见
+	VisibilityPrivate Visibility = 2 // 仅自己可见
+)
+
 type Checkin struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID      primitive.ObjectID `bson:"user_id" json:"user_id"`
@@ -26,6 +35,7 @@ type Checkin struct {
 	FileSize    int64              `bson:"file_size" json:"file_size"`
 	Score       int                `bson:"score" json:"score"`
 	Status      CheckinStatus      `bson:"status" json:"status"`
+	Visibility  Visibility         `bson:"visibility" json:"visibility"` // 可见性
 	LikeCount   int                `bson:"like_count" json:"like_count"`
 	CommentCount int              `bson:"comment_count" json:"comment_count"`
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
@@ -34,6 +44,25 @@ type Checkin struct {
 	// 联查字段，不存DB
 	User        *User  `bson:"-" json:"user,omitempty"`
 	IsLiked     bool   `bson:"-" json:"is_liked"`
+}
+
+// IsPublic 检查是否公开可见
+func (c *Checkin) IsPublic() bool {
+	return c.Visibility == VisibilityPublic
+}
+
+// IsVisibleTo 检查对指定用户是否可见
+func (c *Checkin) IsVisibleTo(viewerID primitive.ObjectID) bool {
+	// 作者始终可见
+	if c.UserID == viewerID {
+		return true
+	}
+	// 公开可见
+	if c.Visibility == VisibilityPublic {
+		return true
+	}
+	// 团组和私有：非作者不可见（团组过滤在查询层处理）
+	return false
 }
 
 // IsProcessed 检查打卡视频是否已处理完成

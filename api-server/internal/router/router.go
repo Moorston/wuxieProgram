@@ -62,6 +62,8 @@ func Setup(
 			// 用户
 			auth.GET("/user/profile", userH.GetProfile)
 			auth.PUT("/user/profile", userH.UpdateProfile)
+			auth.GET("/user/privacy", userH.GetPrivacySettings)
+			auth.PUT("/user/privacy", userH.UpdatePrivacySettings)
 			auth.POST("/auth/logout", authH.Logout)
 
 			// 打卡
