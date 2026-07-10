@@ -122,7 +122,7 @@ func New(cfg *config.Config) (*App, error) {
 	notifService := service.NewNotificationService(notifRepo, notifSettingsRepo, userRepo)
 	socialService := service.NewSocialService(commentRepo, likeRepo, checkinRepo, userRepo, notifService)
 	rankService := service.NewRankService(rankRepo)
-	groupService := service.NewGroupService(groupRepo, userRepo)
+	groupService := service.NewGroupService(groupRepo, userRepo, logger)
 	trainingService := service.NewTrainingService(trainingRepo, templateRepo, notifService)
 	insightService := service.NewInsightService(insightRepo, insightTagRepo, insightLikeRepo, userRepo)
 	resourceService := service.NewResourceService(resourceRepo, resourceTagRepo, userRepo)

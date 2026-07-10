@@ -84,6 +84,8 @@ func Setup(
 			// 考核组
 			auth.GET("/group/list", groupH.List)
 			auth.GET("/group/:id", groupH.Detail)
+			auth.POST("/group/:id/invite", groupH.GenerateInviteCode)
+			auth.POST("/group/join", groupH.JoinByInviteCode)
 
 			// 训练计划
 			auth.POST("/training/plan", trainingH.CreatePlan)

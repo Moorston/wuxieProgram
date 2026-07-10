@@ -22,6 +22,9 @@ type RankRepoInterface interface {
 type GroupRepoInterface interface {
 	FindAll(ctx context.Context) ([]*model.Group, error)
 	FindByID(ctx context.Context, id primitive.ObjectID) (*model.Group, error)
+	FindByInviteCode(ctx context.Context, code string) (*model.Group, error)
+	AddMember(ctx context.Context, groupID, userID primitive.ObjectID) error
+	UpdateInviteCode(ctx context.Context, groupID primitive.ObjectID, code string) error
 }
 
 var _ RankRepoInterface = (*RankRepo)(nil)

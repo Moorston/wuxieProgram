@@ -43,6 +43,42 @@ func (r *GroupRepo) FindByID(ctx context.Context, id primitive.ObjectID) (*model
 	return &group, nil
 }
 
+// FindByInviteCode 根据邀请码查找团组
+func (r *GroupRepo) FindByInviteCode(ctx context.Context, code string) (*model.Group, error) {
+	var group model.Group
+	err := r.coll.FindOne(ctx, bson.M{"invite_code": code}).Decode(&group)
+	if err != nil {
+		return nil, err
+	}
+	return &group, nil
+}
+
+// AddMember 添加成员到团组
+func (r *GroupRepo) AddMember(ctx context.Context, groupID, userID primitive.ObjectID) error {
+	_, err := r.coll.UpdateOne(ctx,
+		bson.M{"_id": groupID},
+		bson.M{
+			"$addToSet": bson.M{"member_ids": userID},
+			"$set":      bson.M{"updated_at": time.Now()},
+		},
+	)
+	return err
+}
+
+// UpdateInviteCode 更新团组邀请码
+func (r *GroupRepo) UpdateInviteCode(ctx context.Context, groupID primitive.ObjectID, code string) error {
+	_, err := r.coll.UpdateOne(ctx,
+		bson.M{"_id": groupID},
+		bson.M{
+			"$set": bson.M{
+				"invite_code": code,
+				"updated_at":  time.Now(),
+			},
+		},
+	)
+	return err
+}
+
 type RankRepo struct {
 	coll *mongo.Collection
 }
