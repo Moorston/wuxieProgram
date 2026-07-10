@@ -36,6 +36,31 @@ type Checkin struct {
 	IsLiked     bool   `bson:"-" json:"is_liked"`
 }
 
+// IsProcessed 检查打卡视频是否已处理完成
+func (c *Checkin) IsProcessed() bool {
+	return c.Status == CheckinStatusDone
+}
+
+// IsFailed 检查打卡是否处理失败
+func (c *Checkin) IsFailed() bool {
+	return c.Status == CheckinStatusFailed
+}
+
+// IsPending 检查打卡是否待处理
+func (c *Checkin) IsPending() bool {
+	return c.Status == CheckinStatusPending || c.Status == CheckinStatusProcessing
+}
+
+// BelongsTo 检查打卡是否属于指定用户
+func (c *Checkin) BelongsTo(userID primitive.ObjectID) bool {
+	return c.UserID == userID
+}
+
+// CanDelete 检查打卡是否可以被删除（只有作者可以删除）
+func (c *Checkin) CanDelete(userID primitive.ObjectID) bool {
+	return c.BelongsTo(userID)
+}
+
 type Comment struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	CheckinID primitive.ObjectID `bson:"checkin_id" json:"checkin_id"`
