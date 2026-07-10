@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -35,7 +36,7 @@ func (s *AnalyticsService) GetCheckinHeatmap(ctx context.Context, userID primiti
 	pipeline := []bson.M{
 		{"$match": bson.M{
 			"user_id":    userID,
-			"status":     2, // CheckinStatusDone
+			"status":     model.CheckinStatusDone,
 			"created_at": bson.M{"$gte": startDate},
 		}},
 		{"$group": bson.M{
@@ -64,6 +65,10 @@ func (s *AnalyticsService) GetCheckinHeatmap(ctx context.Context, userID primiti
 		heatmap[result.ID] = result.Count
 	}
 
+	if err := cursor.Err(); err != nil {
+		s.logger.Warn("heatmap cursor error", zap.Error(err))
+	}
+
 	return heatmap, nil
 }
 
@@ -85,7 +90,7 @@ func (s *AnalyticsService) GetCheckinTrend(ctx context.Context, userID primitive
 	pipeline := []bson.M{
 		{"$match": bson.M{
 			"user_id":    userID,
-			"status":     2, // CheckinStatusDone
+			"status":     model.CheckinStatusDone,
 			"created_at": bson.M{"$gte": startDate},
 		}},
 		{"$group": bson.M{
@@ -121,6 +126,10 @@ func (s *AnalyticsService) GetCheckinTrend(ctx context.Context, userID primitive
 		})
 	}
 
+	if err := cursor.Err(); err != nil {
+		s.logger.Warn("trend cursor error", zap.Error(err))
+	}
+
 	return trend, nil
 }
 
@@ -148,7 +157,7 @@ func (s *AnalyticsService) GetOverview(ctx context.Context, userID primitive.Obj
 	weekPipeline := []bson.M{
 		{"$match": bson.M{
 			"user_id":    userID,
-			"status":     2,
+			"status":     model.CheckinStatusDone,
 			"created_at": bson.M{"$gte": weekStart},
 		}},
 		{"$count": "count"},
@@ -159,7 +168,7 @@ func (s *AnalyticsService) GetOverview(ctx context.Context, userID primitive.Obj
 	monthPipeline := []bson.M{
 		{"$match": bson.M{
 			"user_id":    userID,
-			"status":     2,
+			"status":     model.CheckinStatusDone,
 			"created_at": bson.M{"$gte": monthStart},
 		}},
 		{"$count": "count"},
@@ -197,14 +206,14 @@ func (s *AnalyticsService) aggregateCount(ctx context.Context, pipeline []bson.M
 }
 
 func (s *AnalyticsService) calculateStreak(ctx context.Context, userID primitive.ObjectID) int {
-	// 查询最近 365 天的打卡日期
-	startDate := time.Now().AddDate(0, 0, -365)
+	// 查询最近 60 天的打卡日期（足够计算连续天数）
+	startDate := time.Now().AddDate(0, 0, -60)
 	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, startDate.Location())
 
 	pipeline := []bson.M{
 		{"$match": bson.M{
 			"user_id":    userID,
-			"status":     2,
+			"status":     model.CheckinStatusDone,
 			"created_at": bson.M{"$gte": startDate},
 		}},
 		{"$group": bson.M{
@@ -235,23 +244,23 @@ func (s *AnalyticsService) calculateStreak(ctx context.Context, userID primitive
 		return 0
 	}
 
-	// 从今天开始倒推计算连续天数
-	streak := 0
+	// 从最近的打卡日开始倒推计算连续天数
 	today := time.Now().Format("2006-01-02")
 	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 
-	// 如果今天没打卡，从昨天开始算
-	startIdx := 0
-	if len(dates) > 0 && dates[0] != today {
-		if dates[0] == yesterday {
-			startIdx = 0
-		} else {
-			return 0 // 最近一次打卡不是今天也不是昨天，连续中断
-		}
+	// 确定起始基准日
+	var baseDate time.Time
+	if dates[0] == today {
+		baseDate = time.Now()
+	} else if dates[0] == yesterday {
+		baseDate = time.Now().AddDate(0, 0, -1)
+	} else {
+		return 0 // 最近打卡不是今天也不是昨天，连续中断
 	}
 
-	for i := startIdx; i < len(dates); i++ {
-		expected := time.Now().AddDate(0, 0, -(i - startIdx)).Format("2006-01-02")
+	streak := 0
+	for i := 0; i < len(dates); i++ {
+		expected := baseDate.AddDate(0, 0, -i).Format("2006-01-02")
 		if dates[i] == expected {
 			streak++
 		} else {
