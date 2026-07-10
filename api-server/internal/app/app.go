@@ -71,6 +71,9 @@ func New(cfg *config.Config) (*App, error) {
 	resourceRepo := repository.NewResourceRepo(db)
 	resourceTagRepo := repository.NewResourceTagRepo(db)
 
+	// Audit Log
+	auditLogRepo := repository.NewAuditLogRepo(db)
+
 	// 创建索引
 	ctx := context.Background()
 	for name, ensureFn := range map[string]func(context.Context) error{
@@ -86,6 +89,7 @@ func New(cfg *config.Config) (*App, error) {
 		"insight_like":   insightLikeRepo.EnsureIndexes,
 		"resource":       resourceRepo.EnsureIndexes,
 		"resource_tag":   resourceTagRepo.EnsureIndexes,
+		"audit_log":      auditLogRepo.EnsureIndexes,
 	} {
 		if err := ensureFn(ctx); err != nil {
 			log.Printf("WARNING: ensure index %s failed: %v", name, err)
@@ -114,7 +118,7 @@ func New(cfg *config.Config) (*App, error) {
 	cronService := service.NewCronService(userRepo, checkinRepo, rankRepo, trainingRepo, notifRepo, wxClient, cfg, logger)
 
 	// Admin Service
-	adminService := service.NewAdminService(userRepo, checkinRepo, insightRepo, jwtMgr, cfg, logger)
+	adminService := service.NewAdminService(userRepo, checkinRepo, insightRepo, auditLogRepo, jwtMgr, cfg, logger)
 
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)

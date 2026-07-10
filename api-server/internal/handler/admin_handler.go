@@ -40,6 +40,7 @@ func (h *AdminHandler) Login(c *gin.Context) {
 		return
 	}
 
+	h.logger.Info("admin login success", zap.String("username", req.Username), zap.String("ip", c.ClientIP()))
 	response.Success(c, gin.H{"token": token})
 }
 
@@ -50,7 +51,6 @@ func (h *AdminHandler) GetDashboard(c *gin.Context) {
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, stats)
 }
 
@@ -63,8 +63,21 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, gin.H{"list": users, "total": total})
+}
+
+func (h *AdminHandler) GetUserDetail(c *gin.Context) {
+	id, ok := getObjectID(c, "id")
+	if !ok {
+		return
+	}
+
+	detail, err := h.adminService.GetUserDetail(c.Request.Context(), id)
+	if err != nil {
+		response.NotFound(c, "user not found")
+		return
+	}
+	response.Success(c, detail)
 }
 
 func (h *AdminHandler) BanUser(c *gin.Context) {
@@ -73,11 +86,10 @@ func (h *AdminHandler) BanUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.adminService.BanUser(c.Request.Context(), id); err != nil {
+	if err := h.adminService.BanUser(c.Request.Context(), id, "admin", c.ClientIP()); err != nil {
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, nil)
 }
 
@@ -87,11 +99,10 @@ func (h *AdminHandler) UnbanUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.adminService.UnbanUser(c.Request.Context(), id); err != nil {
+	if err := h.adminService.UnbanUser(c.Request.Context(), id, "admin", c.ClientIP()); err != nil {
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, nil)
 }
 
@@ -103,7 +114,6 @@ func (h *AdminHandler) GetCheckins(c *gin.Context) {
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, gin.H{"list": checkins, "total": total})
 }
 
@@ -115,7 +125,6 @@ func (h *AdminHandler) GetInsights(c *gin.Context) {
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, gin.H{"list": insights, "total": total})
 }
 
@@ -124,13 +133,11 @@ func (h *AdminHandler) DeleteCheckin(c *gin.Context) {
 	if !ok {
 		return
 	}
-
-	if err := h.adminService.DeleteCheckin(c.Request.Context(), id); err != nil {
+	if err := h.adminService.DeleteCheckin(c.Request.Context(), id, "admin", c.ClientIP()); err != nil {
 		h.logger.Error("admin delete checkin failed", zap.Error(err))
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, nil)
 }
 
@@ -139,17 +146,103 @@ func (h *AdminHandler) DeleteInsight(c *gin.Context) {
 	if !ok {
 		return
 	}
-
-	if err := h.adminService.DeleteInsight(c.Request.Context(), id); err != nil {
+	if err := h.adminService.DeleteInsight(c.Request.Context(), id, "admin", c.ClientIP()); err != nil {
 		h.logger.Error("admin delete insight failed", zap.Error(err))
 		response.InternalError(c, "internal server error")
 		return
 	}
-
 	response.Success(c, nil)
 }
 
-// ExportUsers 导出用户数据为 CSV
+// --- 批量操作 ---
+
+type BatchIDsReq struct {
+	IDs []string `json:"ids" binding:"required"`
+}
+
+func parseBatchIDs(c *gin.Context) ([]primitive.ObjectID, bool) {
+	var req BatchIDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid params: ids array required")
+		return nil, false
+	}
+	if len(req.IDs) > 100 {
+		response.BadRequest(c, "too many ids (max 100)")
+		return nil, false
+	}
+	ids := make([]primitive.ObjectID, 0, len(req.IDs))
+	for _, idStr := range req.IDs {
+		id, err := primitive.ObjectIDFromHex(idStr)
+		if err != nil {
+			response.BadRequest(c, fmt.Sprintf("invalid id: %s", idStr))
+			return nil, false
+		}
+		ids = append(ids, id)
+	}
+	return ids, true
+}
+
+func (h *AdminHandler) BatchBanUsers(c *gin.Context) {
+	ids, ok := parseBatchIDs(c)
+	if !ok {
+		return
+	}
+	count, err := h.adminService.BatchBanUsers(c.Request.Context(), ids, "admin", c.ClientIP())
+	if err != nil {
+		response.InternalError(c, "internal server error")
+		return
+	}
+	response.Success(c, gin.H{"affected": count})
+}
+
+func (h *AdminHandler) BatchDeleteCheckins(c *gin.Context) {
+	ids, ok := parseBatchIDs(c)
+	if !ok {
+		return
+	}
+	count, err := h.adminService.BatchDeleteCheckins(c.Request.Context(), ids, "admin", c.ClientIP())
+	if err != nil {
+		response.InternalError(c, "internal server error")
+		return
+	}
+	response.Success(c, gin.H{"affected": count})
+}
+
+func (h *AdminHandler) BatchDeleteInsights(c *gin.Context) {
+	ids, ok := parseBatchIDs(c)
+	if !ok {
+		return
+	}
+	count, err := h.adminService.BatchDeleteInsights(c.Request.Context(), ids, "admin", c.ClientIP())
+	if err != nil {
+		response.InternalError(c, "internal server error")
+		return
+	}
+	response.Success(c, gin.H{"affected": count})
+}
+
+// --- 操作日志 ---
+
+func (h *AdminHandler) GetAuditLogs(c *gin.Context) {
+	page, pageSize := parsePagination(c, 20)
+	logs, total, err := h.adminService.GetAuditLogs(c.Request.Context(), page, pageSize)
+	if err != nil {
+		h.logger.Error("admin get audit logs failed", zap.Error(err))
+		response.InternalError(c, "internal server error")
+		return
+	}
+	response.Success(c, gin.H{"list": logs, "total": total})
+}
+
+// --- 系统配置 ---
+
+func (h *AdminHandler) GetSystemConfig(c *gin.Context) {
+	cfg := h.adminService.GetSystemConfig()
+	response.Success(c, cfg)
+}
+
+// --- CSV 导出 ---
+
 func (h *AdminHandler) ExportUsers(c *gin.Context) {
 	users, _, err := h.adminService.GetUsers(c.Request.Context(), 1, 10000, "")
 	if err != nil {
@@ -159,7 +252,7 @@ func (h *AdminHandler) ExportUsers(c *gin.Context) {
 
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=users_%s.csv", time.Now().Format("20060102")))
-	c.Writer.Write([]byte("\xEF\xBB\xBF")) // UTF-8 BOM
+	c.Writer.Write([]byte("\xEF\xBB\xBF"))
 	c.Writer.Write([]byte("ID,昵称,积分,打卡天数,状态,注册时间\n"))
 	for _, u := range users {
 		status := "正常"
@@ -171,7 +264,6 @@ func (h *AdminHandler) ExportUsers(c *gin.Context) {
 	}
 }
 
-// ExportCheckins 导出打卡数据为 CSV
 func (h *AdminHandler) ExportCheckins(c *gin.Context) {
 	checkins, _, err := h.adminService.GetCheckins(c.Request.Context(), 1, 10000)
 	if err != nil {
@@ -189,7 +281,6 @@ func (h *AdminHandler) ExportCheckins(c *gin.Context) {
 	}
 }
 
-// ExportInsights 导出感悟数据为 CSV
 func (h *AdminHandler) ExportInsights(c *gin.Context) {
 	insights, _, err := h.adminService.GetInsights(c.Request.Context(), 1, 10000)
 	if err != nil {

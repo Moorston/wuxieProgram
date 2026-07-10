@@ -146,16 +146,30 @@ func Setup(
 			adminAuth := admin.Group("", middleware.Auth(jwtMgr, blacklist), middleware.AdminOnly())
 			{
 				adminAuth.GET("/dashboard", adminH.GetDashboard)
+				adminAuth.GET("/config", adminH.GetSystemConfig)
+
+				// 用户管理
 				adminAuth.GET("/users", adminH.GetUsers)
+				adminAuth.GET("/users/:id", adminH.GetUserDetail)
 				adminAuth.PUT("/users/:id/ban", adminH.BanUser)
 				adminAuth.PUT("/users/:id/unban", adminH.UnbanUser)
+				adminAuth.POST("/users/batch-ban", adminH.BatchBanUsers)
+
+				// 内容管理
 				adminAuth.GET("/checkins", adminH.GetCheckins)
 				adminAuth.DELETE("/checkins/:id", adminH.DeleteCheckin)
+				adminAuth.POST("/checkins/batch-delete", adminH.BatchDeleteCheckins)
 				adminAuth.GET("/insights", adminH.GetInsights)
 				adminAuth.DELETE("/insights/:id", adminH.DeleteInsight)
+				adminAuth.POST("/insights/batch-delete", adminH.BatchDeleteInsights)
+
+				// 导出
 				adminAuth.GET("/export/users", adminH.ExportUsers)
 				adminAuth.GET("/export/checkins", adminH.ExportCheckins)
 				adminAuth.GET("/export/insights", adminH.ExportInsights)
+
+				// 操作日志
+				adminAuth.GET("/audit-logs", adminH.GetAuditLogs)
 			}
 		}
 	}

@@ -19,6 +19,7 @@ type AdminService struct {
 	userRepo    repository.UserRepoInterface
 	checkinRepo repository.CheckinRepoInterface
 	insightRepo repository.InsightRepoInterface
+	auditLog    repository.AuditLogInterface
 	jwtMgr      *jwt.JWTManager
 	cfg         *config.Config
 	logger      *zap.Logger
@@ -28,6 +29,7 @@ func NewAdminService(
 	userRepo repository.UserRepoInterface,
 	checkinRepo repository.CheckinRepoInterface,
 	insightRepo repository.InsightRepoInterface,
+	auditLog repository.AuditLogInterface,
 	jwtMgr *jwt.JWTManager,
 	cfg *config.Config,
 	logger *zap.Logger,
@@ -36,6 +38,7 @@ func NewAdminService(
 		userRepo:    userRepo,
 		checkinRepo: checkinRepo,
 		insightRepo: insightRepo,
+		auditLog:    auditLog,
 		jwtMgr:      jwtMgr,
 		cfg:         cfg,
 		logger:      logger,
@@ -49,11 +52,16 @@ type DashboardStats struct {
 	TotalCheckins int64 `json:"total_checkins"`
 }
 
+type UserDetail struct {
+	User     *model.User      `json:"user"`
+	Checkins []*model.Checkin  `json:"checkins"`
+	Insights []*model.Insight  `json:"insights"`
+}
+
 func (s *AdminService) Login(username, password string) (string, error) {
 	if s.cfg.Admin == nil {
 		return "", fmt.Errorf("admin not configured")
 	}
-	// 常量时间比较防止时序攻击
 	usernameMatch := subtle.ConstantTimeCompare([]byte(username), []byte(s.cfg.Admin.Username))
 	passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(s.cfg.Admin.Password))
 	if usernameMatch&passwordMatch != 1 {
@@ -72,12 +80,36 @@ func (s *AdminService) GetUsers(ctx context.Context, page, pageSize int, keyword
 	return s.userRepo.FindAll(ctx, page, pageSize, keyword)
 }
 
-func (s *AdminService) BanUser(ctx context.Context, userID primitive.ObjectID) error {
-	return s.userRepo.Update(ctx, userID, bson.M{"status": model.UserStatusBanned})
+func (s *AdminService) GetUserDetail(ctx context.Context, userID primitive.ObjectID) (*UserDetail, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	checkins, _, _ := s.checkinRepo.ListByUser(ctx, userID, 1, 20)
+	insights, _, _ := s.insightRepo.ListByUser(ctx, userID, "", "", 1, 20)
+
+	return &UserDetail{
+		User:     user,
+		Checkins: checkins,
+		Insights: insights,
+	}, nil
 }
 
-func (s *AdminService) UnbanUser(ctx context.Context, userID primitive.ObjectID) error {
-	return s.userRepo.Update(ctx, userID, bson.M{"status": model.UserStatusActive})
+func (s *AdminService) BanUser(ctx context.Context, userID primitive.ObjectID, adminUser, ip string) error {
+	err := s.userRepo.Update(ctx, userID, bson.M{"status": model.UserStatusBanned})
+	if err == nil {
+		s.logAction(ctx, adminUser, "ban_user", userID.Hex(), "user", "封禁用户", ip)
+	}
+	return err
+}
+
+func (s *AdminService) UnbanUser(ctx context.Context, userID primitive.ObjectID, adminUser, ip string) error {
+	err := s.userRepo.Update(ctx, userID, bson.M{"status": model.UserStatusActive})
+	if err == nil {
+		s.logAction(ctx, adminUser, "unban_user", userID.Hex(), "user", "解封用户", ip)
+	}
+	return err
 }
 
 func (s *AdminService) GetStats(ctx context.Context) (*DashboardStats, error) {
@@ -116,15 +148,92 @@ func (s *AdminService) GetInsights(ctx context.Context, page, pageSize int) ([]*
 	return s.insightRepo.ListAll(ctx, page, pageSize)
 }
 
-func (s *AdminService) DeleteCheckin(ctx context.Context, id primitive.ObjectID) error {
-	return s.checkinRepo.DeleteByID(ctx, id)
+func (s *AdminService) DeleteCheckin(ctx context.Context, id primitive.ObjectID, adminUser, ip string) error {
+	err := s.checkinRepo.DeleteByID(ctx, id)
+	if err == nil {
+		s.logAction(ctx, adminUser, "delete_checkin", id.Hex(), "checkin", "删除打卡", ip)
+	}
+	return err
 }
 
-func (s *AdminService) DeleteInsight(ctx context.Context, id primitive.ObjectID) error {
-	return s.insightRepo.DeleteByID(ctx, id)
+func (s *AdminService) DeleteInsight(ctx context.Context, id primitive.ObjectID, adminUser, ip string) error {
+	err := s.insightRepo.DeleteByID(ctx, id)
+	if err == nil {
+		s.logAction(ctx, adminUser, "delete_insight", id.Hex(), "insight", "删除感悟", ip)
+	}
+	return err
 }
 
-// validatePagination 验证分页参数
+// BatchBanUsers 批量封禁用户
+func (s *AdminService) BatchBanUsers(ctx context.Context, userIDs []primitive.ObjectID, adminUser, ip string) (int, error) {
+	count := 0
+	for _, id := range userIDs {
+		if err := s.userRepo.Update(ctx, id, bson.M{"status": model.UserStatusBanned}); err == nil {
+			count++
+		}
+	}
+	s.logAction(ctx, adminUser, "batch_ban_users", fmt.Sprintf("%d users", count), "user", fmt.Sprintf("批量封禁 %d 个用户", count), ip)
+	return count, nil
+}
+
+// BatchDeleteCheckins 批量删除打卡
+func (s *AdminService) BatchDeleteCheckins(ctx context.Context, ids []primitive.ObjectID, adminUser, ip string) (int, error) {
+	count := 0
+	for _, id := range ids {
+		if err := s.checkinRepo.DeleteByID(ctx, id); err == nil {
+			count++
+		}
+	}
+	s.logAction(ctx, adminUser, "batch_delete_checkins", fmt.Sprintf("%d checkins", count), "checkin", fmt.Sprintf("批量删除 %d 条打卡", count), ip)
+	return count, nil
+}
+
+// BatchDeleteInsights 批量删除感悟
+func (s *AdminService) BatchDeleteInsights(ctx context.Context, ids []primitive.ObjectID, adminUser, ip string) (int, error) {
+	count := 0
+	for _, id := range ids {
+		if err := s.insightRepo.DeleteByID(ctx, id); err == nil {
+			count++
+		}
+	}
+	s.logAction(ctx, adminUser, "batch_delete_insights", fmt.Sprintf("%d insights", count), "insight", fmt.Sprintf("批量删除 %d 条感悟", count), ip)
+	return count, nil
+}
+
+// GetAuditLogs 获取操作日志
+func (s *AdminService) GetAuditLogs(ctx context.Context, page, pageSize int) ([]*model.AuditLog, int64, error) {
+	page, pageSize = validatePagination(page, pageSize)
+	return s.auditLog.List(ctx, page, pageSize)
+}
+
+// GetSystemConfig 获取系统配置（脱敏）
+func (s *AdminService) GetSystemConfig() map[string]interface{} {
+	return map[string]interface{}{
+		"server_port":    s.cfg.Server.Port,
+		"server_mode":    s.cfg.Server.Mode,
+		"jwt_expires_h":  s.cfg.JWT.Expires,
+		"cors_origins":   s.cfg.CORS.AllowedOrigins,
+		"wx_app_id":      s.cfg.WX.AppID,
+		"media_url":      s.cfg.MediaURL,
+		"admin_username": s.cfg.Admin.Username,
+	}
+}
+
+// logAction 记录操作日志
+func (s *AdminService) logAction(ctx context.Context, adminUser, action, targetID, targetType, detail, ip string) {
+	if s.auditLog == nil {
+		return
+	}
+	_ = s.auditLog.Create(ctx, &model.AuditLog{
+		AdminUser:  adminUser,
+		Action:     action,
+		TargetID:   targetID,
+		TargetType: targetType,
+		Detail:     detail,
+		IP:         ip,
+	})
+}
+
 func validatePagination(page, pageSize int) (int, int) {
 	if page < 1 {
 		page = 1
