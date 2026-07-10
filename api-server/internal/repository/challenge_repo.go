@@ -85,6 +85,12 @@ func (r *ChallengeRepo) AddParticipant(ctx context.Context, challengeID, userID 
 	return err
 }
 
+// DeleteByID 根据 ID 删除挑战
+func (r *ChallengeRepo) DeleteByID(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.coll.DeleteOne(ctx, bson.M{"_id": id})
+	return err
+}
+
 func (r *ChallengeRepo) EnsureIndexes(ctx context.Context) error {
 	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "status", Value: 1}, {Key: "start_date", Value: -1}}},
@@ -125,10 +131,12 @@ func (r *ChallengeParticipantRepo) FindByUserAndChallenge(ctx context.Context, u
 }
 
 func (r *ChallengeParticipantRepo) IncrementCompletedDays(ctx context.Context, userID, challengeID primitive.ObjectID, duration int) error {
+	now := time.Now()
 	res := r.coll.FindOneAndUpdate(ctx,
 		bson.M{"user_id": userID, "challenge_id": challengeID},
 		bson.M{
 			"$inc": bson.M{"completed_days": 1},
+			"$set": bson.M{"last_checkin_at": now},
 		},
 		options.FindOneAndUpdate().SetReturnDocument(options.After),
 	)
@@ -196,6 +204,7 @@ type ChallengeRepoInterface interface {
 	FindByID(ctx context.Context, id primitive.ObjectID) (*model.Challenge, error)
 	ListActive(ctx context.Context, page, pageSize int) ([]*model.Challenge, int64, error)
 	AddParticipant(ctx context.Context, challengeID, userID primitive.ObjectID) error
+	DeleteByID(ctx context.Context, id primitive.ObjectID) error
 }
 
 // ChallengeParticipantRepoInterface 参与者仓库接口

@@ -54,14 +54,24 @@ func (s *ChallengeService) CreateChallenge(ctx context.Context, creatorID primit
 		return nil, fmt.Errorf("create challenge failed: %w", err)
 	}
 
-	// 创建者自动参与
-	if err := s.challengeRepo.AddParticipant(ctx, challenge.ID, creatorID); err != nil {
-		s.logger.Warn("add creator to challenge failed", zap.Error(err))
-	}
-	_ = s.participantRepo.Upsert(ctx, &model.ChallengeParticipant{
+	// 创建者自动参与（先记录 participant，再添加到 challenge）
+	participant := &model.ChallengeParticipant{
 		ChallengeID: challenge.ID,
 		UserID:      creatorID,
-	})
+	}
+	if err := s.participantRepo.Upsert(ctx, participant); err != nil {
+		s.logger.Error("create challenge: upsert participant failed, rolling back",
+			zap.String("challenge_id", challenge.ID.Hex()),
+			zap.Error(err),
+		)
+		// 回滚：尝试删除已创建的 challenge
+		_ = s.challengeRepo.DeleteByID(ctx, challenge.ID)
+		return nil, fmt.Errorf("create participant failed: %w", err)
+	}
+
+	if err := s.challengeRepo.AddParticipant(ctx, challenge.ID, creatorID); err != nil {
+		s.logger.Warn("add creator to challenge ids failed", zap.Error(err))
+	}
 
 	return challenge, nil
 }
@@ -99,6 +109,10 @@ func (s *ChallengeService) GetChallenge(ctx context.Context, id primitive.Object
 	}
 	for _, p := range participants {
 		p.User = userMap[p.UserID]
+		if p.User == nil {
+			// 用户已删除，提供占位用户
+			p.User = &model.User{ID: p.UserID, Nickname: "已删除用户"}
+		}
 	}
 	challenge.Participants = participants
 
@@ -136,7 +150,13 @@ func (s *ChallengeService) JoinChallenge(ctx context.Context, challengeID, userI
 		UserID:      userID,
 	}
 	if err := s.participantRepo.Upsert(ctx, participant); err != nil {
-		return nil, fmt.Errorf("create participant record failed: %w", err)
+		s.logger.Error("join challenge: upsert participant failed",
+			zap.String("challenge_id", challengeID.Hex()),
+			zap.String("user_id", userID.Hex()),
+			zap.Error(err),
+		)
+		// 注意：不回滚 AddParticipant，因为 $addToSet 是幂等的
+		// 下次 RecordCheckin 时会创建 participant 记录
 	}
 
 	return participant, nil
@@ -154,11 +174,16 @@ func (s *ChallengeService) RecordCheckin(ctx context.Context, userID primitive.O
 
 	now := time.Now()
 	for _, p := range participants {
+		// 检查今天是否已打卡（防止重复计数）
+		if p.HasCheckedInToday() {
+			continue
+		}
+
 		challenge, err := s.challengeRepo.FindByID(ctx, p.ChallengeID)
 		if err != nil || !challenge.IsActive() {
 			continue
 		}
-		// 检查今天是否已打卡（防止重复计数）
+
 		if err := s.participantRepo.IncrementCompletedDays(ctx, userID, p.ChallengeID, challenge.Duration); err != nil {
 			s.logger.Warn("record checkin: increment failed",
 				zap.String("user_id", userID.Hex()),

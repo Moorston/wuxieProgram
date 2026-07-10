@@ -42,10 +42,22 @@ type ChallengeParticipant struct {
 	CompletedDays int              `bson:"completed_days" json:"completed_days"` // 已完成天数
 	Progress    float64            `bson:"progress" json:"progress"`             // 完成进度 (0-100)
 	IsCompleted bool               `bson:"is_completed" json:"is_completed"`
+	LastCheckinAt *time.Time        `bson:"last_checkin_at,omitempty" json:"last_checkin_at,omitempty"` // 最后打卡时间
 	JoinedAt    time.Time          `bson:"joined_at" json:"joined_at"`
 
 	// 联查字段
 	User *User `bson:"-" json:"user,omitempty"`
+}
+
+// HasCheckedInToday 检查今天是否已打卡
+func (p *ChallengeParticipant) HasCheckedInToday() bool {
+	if p.LastCheckinAt == nil {
+		return false
+	}
+	now := time.Now()
+	return p.LastCheckinAt.Year() == now.Year() &&
+		p.LastCheckinAt.Month() == now.Month() &&
+		p.LastCheckinAt.Day() == now.Day()
 }
 
 // HasParticipant 检查用户是否已参与
