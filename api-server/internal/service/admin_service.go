@@ -229,7 +229,6 @@ func (s *AdminService) GetSystemConfig() map[string]interface{} {
 		"cors_origins":   s.cfg.CORS.AllowedOrigins,
 		"wx_app_id":      s.cfg.WX.AppID,
 		"media_url":      s.cfg.MediaURL,
-		"admin_username": s.cfg.Admin.Username,
 	}
 }
 

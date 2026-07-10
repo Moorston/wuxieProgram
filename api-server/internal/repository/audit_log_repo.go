@@ -7,7 +7,6 @@ import (
 	"wuxie-api/internal/model"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -21,7 +20,9 @@ func NewAuditLogRepo(db *mongo.Database) *AuditLogRepo {
 }
 
 func (r *AuditLogRepo) Create(ctx context.Context, log *model.AuditLog) error {
-	log.CreatedAt = time.Now()
+	if log.CreatedAt.IsZero() {
+		log.CreatedAt = time.Now()
+	}
 	_, err := r.coll.InsertOne(ctx, log)
 	return err
 }
@@ -51,17 +52,8 @@ func (r *AuditLogRepo) List(ctx context.Context, page, pageSize int) ([]*model.A
 }
 
 func (r *AuditLogRepo) EnsureIndexes(ctx context.Context) error {
-	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
-		{Keys: bson.D{{Key: "created_at", Value: -1}}},
-		{Keys: bson.D{{Key: "admin_user", Value: 1}}},
+	_, err := r.coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "created_at", Value: -1}},
 	})
 	return err
 }
-
-// AuditLogInterface 审计日志仓库接口
-type AuditLogInterface interface {
-	Create(ctx context.Context, log *model.AuditLog) error
-	List(ctx context.Context, page, pageSize int) ([]*model.AuditLog, int64, error)
-}
-
-var _ AuditLogInterface = (*AuditLogRepo)(nil)
