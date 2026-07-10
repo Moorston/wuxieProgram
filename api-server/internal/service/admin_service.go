@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"sync"
+	"time"
 
 	"wuxie-api/internal/config"
 	"wuxie-api/internal/model"
@@ -23,6 +25,12 @@ type AdminService struct {
 	jwtMgr      *jwt.JWTManager
 	cfg         *config.Config
 	logger      *zap.Logger
+
+	// 统计缓存
+	statsCache     *DashboardStats
+	statsCacheTime time.Time
+	statsMu        sync.RWMutex
+	statsTTL       time.Duration
 }
 
 func NewAdminService(
@@ -42,6 +50,7 @@ func NewAdminService(
 		jwtMgr:      jwtMgr,
 		cfg:         cfg,
 		logger:      logger,
+		statsTTL:    60 * time.Second, // 统计缓存 60 秒
 	}
 }
 
@@ -121,6 +130,16 @@ func (s *AdminService) UnbanUser(ctx context.Context, userID primitive.ObjectID,
 }
 
 func (s *AdminService) GetStats(ctx context.Context) (*DashboardStats, error) {
+	// 检查缓存
+	s.statsMu.RLock()
+	if s.statsCache != nil && time.Since(s.statsCacheTime) < s.statsTTL {
+		cached := *s.statsCache // 返回副本
+		s.statsMu.RUnlock()
+		return &cached, nil
+	}
+	s.statsMu.RUnlock()
+
+	// 缓存未命中，查询数据库
 	totalUsers, err := s.userRepo.Count(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("count users: %w", err)
@@ -138,12 +157,20 @@ func (s *AdminService) GetStats(ctx context.Context) (*DashboardStats, error) {
 		return nil, fmt.Errorf("count checkins: %w", err)
 	}
 
-	return &DashboardStats{
+	stats := &DashboardStats{
 		TotalUsers:    totalUsers,
 		ActiveUsers:   activeUsers,
 		BannedUsers:   bannedUsers,
 		TotalCheckins: totalCheckins,
-	}, nil
+	}
+
+	// 写入缓存
+	s.statsMu.Lock()
+	s.statsCache = stats
+	s.statsCacheTime = time.Now()
+	s.statsMu.Unlock()
+
+	return stats, nil
 }
 
 func (s *AdminService) GetCheckins(ctx context.Context, page, pageSize int) ([]*model.Checkin, int64, error) {

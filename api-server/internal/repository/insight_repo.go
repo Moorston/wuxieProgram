@@ -232,6 +232,7 @@ func (r *InsightRepo) EnsureIndexes(ctx context.Context) error {
 		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "tags", Value: 1}}},
 		{Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "mood", Value: 1}}},
 		{Keys: bson.D{{Key: "visibility", Value: 1}, {Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "created_at", Value: -1}}}, // admin ListAll 排序
 	})
 	return err
 }

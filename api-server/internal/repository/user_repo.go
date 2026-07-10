@@ -204,9 +204,15 @@ func (r *UserRepo) FindTopByScore(ctx context.Context, limit int) ([]*model.User
 }
 
 func (r *UserRepo) EnsureIndexes(ctx context.Context) error {
-	_, err := r.coll.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "openid", Value: 1}},
-		Options: options.Index().SetUnique(true),
+	_, err := r.coll.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "openid", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+		{Keys: bson.D{{Key: "nickname", Value: 1}}},           // 搜索优化
+		{Keys: bson.D{{Key: "status", Value: 1}}},             // 按状态查询
+		{Keys: bson.D{{Key: "score", Value: -1}}},             // 排行榜排序
+		{Keys: bson.D{{Key: "created_at", Value: -1}}},        // 分页排序
 	})
 	return err
 }

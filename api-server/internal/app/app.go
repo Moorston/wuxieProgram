@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"wuxie-api/internal/config"
@@ -42,8 +43,16 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	// 连接MongoDB
-	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(cfg.Mongo.URI))
+	// 连接MongoDB（带连接池配置）
+	mongoURI := cfg.Mongo.URI
+	if !strings.Contains(mongoURI, "maxPoolSize") {
+		separator := "?"
+		if strings.Contains(mongoURI, "?") {
+			separator = "&"
+		}
+		mongoURI += separator + "maxPoolSize=100&minPoolSize=10&socketTimeoutMS=30000&serverSelectionTimeoutMS=5000"
+	}
+	mongoClient, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		return nil, err
 	}
