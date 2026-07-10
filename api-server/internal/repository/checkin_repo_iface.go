@@ -19,6 +19,7 @@ type CheckinRepoInterface interface {
 	UpdateStatus(ctx context.Context, id primitive.ObjectID, status model.CheckinStatus, videoURL, coverURL string, duration float64) error
 	List(ctx context.Context, userID primitive.ObjectID, groupUserIDs []primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
 	ListByUser(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
+	ListByUserIDs(ctx context.Context, userIDs []primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
 	ListAll(ctx context.Context, page, pageSize int) ([]*model.Checkin, int64, error)
 	Delete(ctx context.Context, id, userID primitive.ObjectID) error
 	DeleteByID(ctx context.Context, id primitive.ObjectID) error

@@ -38,6 +38,10 @@ func (h *FollowHandler) Follow(c *gin.Context) {
 			response.BadRequest(c, "cannot follow yourself")
 			return
 		}
+		if err == service.ErrTargetUserNotFound {
+			response.NotFound(c, "user not found")
+			return
+		}
 		h.logger.Error("follow failed", zap.Error(err))
 		response.InternalError(c, "internal server error")
 		return

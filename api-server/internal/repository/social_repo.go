@@ -31,8 +31,14 @@ func (r *CommentRepo) Create(ctx context.Context, c *model.Comment) error {
 }
 
 func (r *CommentRepo) ListByCheckin(ctx context.Context, checkinID primitive.ObjectID, page, pageSize int) ([]*model.Comment, int64, error) {
-	// 只返回顶层评论（无 parent_id）
-	filter := bson.M{"checkin_id": checkinID, "parent_id": bson.M{"$exists": false}}
+	// 只返回顶层评论（parent_id 为空或不存在）
+	filter := bson.M{
+		"checkin_id": checkinID,
+		"$or": []bson.M{
+			{"parent_id": bson.M{"$exists": false}},
+			{"parent_id": primitive.NilObjectID},
+		},
+	}
 
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {

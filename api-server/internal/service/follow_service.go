@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
@@ -38,6 +39,10 @@ func NewFollowService(
 func (s *FollowService) Follow(ctx context.Context, followerID, followingID primitive.ObjectID) error {
 	if followerID == followingID {
 		return ErrCannotFollowSelf
+	}
+	// 验证目标用户存在
+	if _, err := s.userRepo.FindByID(ctx, followingID); err != nil {
+		return ErrTargetUserNotFound
 	}
 	return s.followRepo.Follow(ctx, followerID, followingID)
 }
@@ -90,16 +95,16 @@ func (s *FollowService) GetFollowStats(ctx context.Context, userID primitive.Obj
 
 // FeedItem 动态条目
 type FeedItem struct {
-	Type      string      `json:"type"` // checkin, insight
-	Checkin   *model.Checkin  `json:"checkin,omitempty"`
-	Insight   *model.Insight  `json:"insight,omitempty"`
-	CreatedAt interface{} `json:"created_at"`
+	Type      string         `json:"type"` // checkin, insight
+	Checkin   *model.Checkin `json:"checkin,omitempty"`
+	Insight   *model.Insight `json:"insight,omitempty"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 // GetFeed 获取关注用户的动态流
 func (s *FollowService) GetFeed(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]FeedItem, error) {
-	// 获取关注列表
-	followingIDs, _, err := s.followRepo.GetFollowing(ctx, userID, 1, 100)
+	// 获取关注列表（最多 500 人）
+	followingIDs, _, err := s.followRepo.GetFollowing(ctx, userID, 1, 500)
 	if err != nil {
 		return nil, err
 	}
@@ -108,26 +113,16 @@ func (s *FollowService) GetFeed(ctx context.Context, userID primitive.ObjectID, 
 		return []FeedItem{}, nil
 	}
 
-	// 查询关注用户的公开打卡
-	var feed []FeedItem
-
-	// 查询打卡（简化：查询所有关注用户的打卡，按时间排序）
-	checkins, _, err := s.checkinRepo.ListAll(ctx, page, pageSize*2) // 多取一些再过滤
-	if err == nil {
-		followingSet := make(map[primitive.ObjectID]bool, len(followingIDs))
-		for _, id := range followingIDs {
-			followingSet[id] = true
-		}
-		for _, c := range checkins {
-			if followingSet[c.UserID] {
-				feed = append(feed, FeedItem{Type: "checkin", Checkin: c, CreatedAt: c.CreatedAt})
-			}
-		}
+	// 直接查询关注用户的打卡（$in 查询，服务端过滤）
+	checkins, _, err := s.checkinRepo.ListByUserIDs(ctx, followingIDs, page, pageSize)
+	if err != nil {
+		s.logger.Warn("get feed: query checkins failed", zap.Error(err))
+		return []FeedItem{}, nil
 	}
 
-	// 限制返回数量
-	if len(feed) > pageSize {
-		feed = feed[:pageSize]
+	feed := make([]FeedItem, 0, len(checkins))
+	for _, c := range checkins {
+		feed = append(feed, FeedItem{Type: "checkin", Checkin: c, CreatedAt: c.CreatedAt})
 	}
 
 	return feed, nil
@@ -161,6 +156,7 @@ func (s *FollowService) GetUserProfile(ctx context.Context, targetID, viewerID p
 
 // 错误定义
 var ErrCannotFollowSelf = &followError{"cannot follow yourself"}
+var ErrTargetUserNotFound = &followError{"target user not found"}
 
 type followError struct {
 	msg string
