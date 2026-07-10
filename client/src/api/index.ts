@@ -89,3 +89,6 @@ export { getCompetitions, getCompetitionDetail, submitCompetitionEntry, getCompe
 
 // 徽章
 export { getAllBadges, getMyBadges } from './badge'
+
+// 打卡挑战
+export { createChallenge, getChallenges, getChallengeDetail, joinChallenge, getChallengeRanking } from './challenge'

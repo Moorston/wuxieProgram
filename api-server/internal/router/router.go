@@ -30,6 +30,7 @@ func Setup(
 	compH *handler.CompetitionHandler,
 	badgeH *handler.BadgeHandler,
 	annH *handler.GroupAnnouncementHandler,
+	challengeH *handler.ChallengeHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -159,6 +160,13 @@ func Setup(
 			// 徽章
 			auth.GET("/badges", badgeH.GetAllBadges)
 			auth.GET("/badges/my", badgeH.GetUserBadges)
+
+			// 打卡挑战
+			auth.POST("/challenges", challengeH.Create)
+			auth.GET("/challenges", challengeH.List)
+			auth.GET("/challenges/:id", challengeH.Detail)
+			auth.POST("/challenges/:id/join", challengeH.Join)
+			auth.GET("/challenges/:id/ranking", challengeH.Ranking)
 
 			// 个人资料库
 			auth.GET("/resource/upload/presign", resourceH.Presign)
