@@ -23,3 +23,11 @@ wx:
 
 media_url: "http://media-server:8081"
 media_secret: "wuxie-media-secret-change-in-production"
+
+cors:
+  allowed_origins:
+    - "http://localhost:8080"
+    - "http://localhost:3000"
+    - "http://localhost"
+    # 生产环境添加实际域名，如:
+    # - "https://wuxie.example.com"

@@ -1,27 +1,30 @@
 package handler
 
 import (
-	"log"
-
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type GroupHandler struct {
 	groupService *service.GroupService
+	logger       *zap.Logger
 }
 
-func NewGroupHandler(groupService *service.GroupService) *GroupHandler {
-	return &GroupHandler{groupService: groupService}
+func NewGroupHandler(groupService *service.GroupService, logger *zap.Logger) *GroupHandler {
+	return &GroupHandler{groupService: groupService, logger: logger}
 }
 
 func (h *GroupHandler) List(c *gin.Context) {
 	groups, err := h.groupService.List(c.Request.Context())
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("list groups failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -30,13 +33,12 @@ func (h *GroupHandler) List(c *gin.Context) {
 }
 
 func (h *GroupHandler) Detail(c *gin.Context) {
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid group id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
-	group, err := h.groupService.GetDetail(c.Request.Context(), id)
+	group, err := h.groupService.Detail(c.Request.Context(), id)
 	if err != nil {
 		response.NotFound(c, "group not found")
 		return

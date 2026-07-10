@@ -7,6 +7,7 @@ import (
 	"wuxie-api/internal/config"
 	"wuxie-api/internal/handler"
 	"wuxie-api/internal/middleware"
+	"wuxie-api/internal/repository"
 	"wuxie-api/pkg/jwt"
 
 	"github.com/gin-gonic/gin"
@@ -25,12 +26,14 @@ func Setup(
 	insightH *handler.InsightHandler,
 	resourceH *handler.ResourceHandler,
 	jwtMgr *jwt.JWTManager,
+	blacklist *middleware.TokenBlacklist,
+	userRepo *repository.UserRepo,
 	logger *zap.Logger,
 	cfg *config.Config,
 ) *gin.Engine {
 	r := gin.New()
 
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORS(cfg.CORS.AllowedOrigins))
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.RequestID())
 	r.Use(gin.Recovery())
@@ -47,13 +50,15 @@ func Setup(
 	{
 		// 公开接口
 		api.POST("/auth/login", middleware.LoginRateLimit(), authH.Login)
+		api.POST("/auth/refresh", middleware.LoginRateLimit(), authH.Refresh)
 
 		// 需要鉴权的接口
-		auth := api.Group("", middleware.Auth(jwtMgr))
+		auth := api.Group("", middleware.Auth(jwtMgr, blacklist), middleware.UserStatusCheck(userRepo.IsBanned))
 		{
 			// 用户
 			auth.GET("/user/profile", userH.GetProfile)
 			auth.PUT("/user/profile", userH.UpdateProfile)
+			auth.POST("/auth/logout", authH.Logout)
 
 			// 打卡
 			auth.POST("/checkin/prepare", checkinH.Prepare)

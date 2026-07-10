@@ -1,21 +1,21 @@
 package handler
 
 import (
-	"log"
-
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type UserHandler struct {
 	userService *service.UserService
+	logger      *zap.Logger
 }
 
-func NewUserHandler(userService *service.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+func NewUserHandler(userService *service.UserService, logger *zap.Logger) *UserHandler {
+	return &UserHandler{userService: userService, logger: logger}
 }
 
 func (h *UserHandler) GetProfile(c *gin.Context) {
@@ -55,7 +55,11 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	if err := h.userService.UpdateProfile(c.Request.Context(), oid, req.Nickname, req.Avatar); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("update profile failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}

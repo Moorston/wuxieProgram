@@ -1,22 +1,21 @@
 package handler
 
 import (
-	"log"
-
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type RankHandler struct {
 	rankService *service.RankService
+	logger      *zap.Logger
 }
 
-func NewRankHandler(rankService *service.RankService) *RankHandler {
-	return &RankHandler{rankService: rankService}
+func NewRankHandler(rankService *service.RankService, logger *zap.Logger) *RankHandler {
+	return &RankHandler{rankService: rankService, logger: logger}
 }
 
 func (h *RankHandler) GetRankList(c *gin.Context) {
@@ -25,12 +24,16 @@ func (h *RankHandler) GetRankList(c *gin.Context) {
 
 	entries, err := h.rankService.GetRankList(c.Request.Context(), period, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("get rank list failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
 
-	response.Success(c, entries)
+	response.Success(c, gin.H{"list": entries})
 }
 
 func (h *RankHandler) GetMyRank(c *gin.Context) {

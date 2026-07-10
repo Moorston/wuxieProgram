@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"strconv"
 
 	"wuxie-api/internal/model"
@@ -10,14 +9,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type InsightHandler struct {
 	insightService *service.InsightService
+	logger         *zap.Logger
 }
 
-func NewInsightHandler(insightService *service.InsightService) *InsightHandler {
-	return &InsightHandler{insightService: insightService}
+func NewInsightHandler(insightService *service.InsightService, logger *zap.Logger) *InsightHandler {
+	return &InsightHandler{insightService: insightService, logger: logger}
 }
 
 type CreateInsightReq struct {
@@ -25,10 +26,15 @@ type CreateInsightReq struct {
 	Images     []string `json:"images"`
 	Mood       string   `json:"mood"`
 	Tags       []string `json:"tags"`
-	CheckinID  string   `json:"checkin_id"`
-	PlanID     string   `json:"plan_id"`
-	PlanDay    int      `json:"plan_day"`
-	Visibility string   `json:"visibility"`
+	IsPublic   bool     `json:"is_public"`
+}
+
+type UpdateInsightReq struct {
+	Content  string   `json:"content"`
+	Images   []string `json:"images"`
+	Mood     string   `json:"mood"`
+	Tags     []string `json:"tags"`
+	IsPublic *bool    `json:"is_public"`
 }
 
 func (h *InsightHandler) Create(c *gin.Context) {
@@ -43,43 +49,29 @@ func (h *InsightHandler) Create(c *gin.Context) {
 		return
 	}
 
-	insight := &model.Insight{
-		Content:    req.Content,
-		Images:     req.Images,
-		Mood:       model.MoodType(req.Mood),
-		Tags:       req.Tags,
-		Visibility: model.Visibility(req.Visibility),
-		PlanDay:    req.PlanDay,
-	}
+	insight, err := h.insightService.Create(c.Request.Context(), oid, &model.Insight{
+		Content:  req.Content,
+		Images:   req.Images,
+		Mood:     req.Mood,
+		Tags:     req.Tags,
+		IsPublic: req.IsPublic,
+	})
 
-	if req.CheckinID != "" {
-		if id, err := primitive.ObjectIDFromHex(req.CheckinID); err == nil {
-			insight.CheckinID = id
-		}
-	}
-	if req.PlanID != "" {
-		if id, err := primitive.ObjectIDFromHex(req.PlanID); err == nil {
-			insight.PlanID = id
-		}
-	}
-
-	if err := h.insightService.Create(c.Request.Context(), oid, insight); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err != nil {
+		h.logger.Error("create insight failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
 
-	response.Success(c, insight)
+	response.Success(c, gin.H{"id": insight.ID.Hex()})
 }
 
 func (h *InsightHandler) GetByID(c *gin.Context) {
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid insight id")
-		return
-	}
-
-	oid, ok := getUserID(c)
+	id, ok := getObjectID(c, "id")
 	if !ok {
 		return
 	}
@@ -87,11 +79,6 @@ func (h *InsightHandler) GetByID(c *gin.Context) {
 	insight, err := h.insightService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		response.NotFound(c, "insight not found")
-		return
-	}
-
-	if insight.Visibility != model.VisibilityPublic && insight.UserID != oid {
-		response.Forbidden(c, "no access")
 		return
 	}
 
@@ -104,8 +91,6 @@ func (h *InsightHandler) List(c *gin.Context) {
 		return
 	}
 
-	tag := c.Query("tag")
-	mood := c.Query("mood")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	if page < 1 {
@@ -115,17 +100,21 @@ func (h *InsightHandler) List(c *gin.Context) {
 		pageSize = 20
 	}
 
+	tag := c.Query("tag")
+	mood := c.Query("mood")
+
 	insights, total, err := h.insightService.List(c.Request.Context(), oid, tag, mood, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("list insights failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
 
-	response.Success(c, gin.H{
-		"list":  insights,
-		"total": total,
-	})
+	response.Success(c, gin.H{"list": insights, "total": total})
 }
 
 func (h *InsightHandler) ListPublic(c *gin.Context) {
@@ -140,34 +129,26 @@ func (h *InsightHandler) ListPublic(c *gin.Context) {
 
 	insights, total, err := h.insightService.ListPublic(c.Request.Context(), page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("list public insights failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
 
-	response.Success(c, gin.H{
-		"list":  insights,
-		"total": total,
-	})
-}
-
-type UpdateInsightReq struct {
-	Content    string   `json:"content"`
-	Images     []string `json:"images"`
-	Mood       string   `json:"mood"`
-	Tags       []string `json:"tags"`
-	Visibility string   `json:"visibility"`
+	response.Success(c, gin.H{"list": insights, "total": total})
 }
 
 func (h *InsightHandler) Update(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid insight id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
@@ -177,25 +158,18 @@ func (h *InsightHandler) Update(c *gin.Context) {
 		return
 	}
 
-	update := map[string]interface{}{}
-	if req.Content != "" {
-		update["content"] = req.Content
-	}
-	if req.Images != nil {
-		update["images"] = req.Images
-	}
-	if req.Mood != "" {
-		update["mood"] = req.Mood
-	}
-	if req.Tags != nil {
-		update["tags"] = req.Tags
-	}
-	if req.Visibility != "" {
-		update["visibility"] = req.Visibility
-	}
-
-	if err := h.insightService.Update(c.Request.Context(), id, uid, update); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err := h.insightService.Update(c.Request.Context(), oid, id, req.Tags, map[string]interface{}{
+		"content":   req.Content,
+		"images":    req.Images,
+		"mood":      req.Mood,
+		"tags":      req.Tags,
+		"is_public": req.IsPublic,
+	}); err != nil {
+		h.logger.Error("update insight failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -204,19 +178,22 @@ func (h *InsightHandler) Update(c *gin.Context) {
 }
 
 func (h *InsightHandler) Delete(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid insight id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.insightService.Delete(c.Request.Context(), id, uid); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err := h.insightService.Delete(c.Request.Context(), oid, id); err != nil {
+		h.logger.Error("delete insight failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -225,14 +202,13 @@ func (h *InsightHandler) Delete(c *gin.Context) {
 }
 
 func (h *InsightHandler) GetTags(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	tags, err := h.insightService.GetTags(c.Request.Context(), uid)
+	tags, err := h.insightService.GetTags(c.Request.Context(), oid)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -241,19 +217,18 @@ func (h *InsightHandler) GetTags(c *gin.Context) {
 }
 
 func (h *InsightHandler) MoodStats(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
-	if days < 1 {
+	if days <= 0 {
 		days = 30
 	}
 
-	stats, err := h.insightService.MoodStats(c.Request.Context(), uid, days)
+	stats, err := h.insightService.MoodStats(c.Request.Context(), oid, days)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -262,14 +237,13 @@ func (h *InsightHandler) MoodStats(c *gin.Context) {
 }
 
 func (h *InsightHandler) OnThisDay(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	insights, err := h.insightService.OnThisDay(c.Request.Context(), uid)
+	insights, err := h.insightService.OnThisDay(c.Request.Context(), oid)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -283,15 +257,18 @@ func (h *InsightHandler) Like(c *gin.Context) {
 		return
 	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid insight id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
-	liked, err := h.insightService.Like(c.Request.Context(), id, oid)
+	liked, err := h.insightService.Like(c.Request.Context(), oid, id)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("toggle insight like failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}

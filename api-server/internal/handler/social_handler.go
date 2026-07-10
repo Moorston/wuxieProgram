@@ -1,21 +1,21 @@
 package handler
 
 import (
-	"log"
-
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type SocialHandler struct {
 	socialService *service.SocialService
+	logger        *zap.Logger
 }
 
-func NewSocialHandler(socialService *service.SocialService) *SocialHandler {
-	return &SocialHandler{socialService: socialService}
+func NewSocialHandler(socialService *service.SocialService, logger *zap.Logger) *SocialHandler {
+	return &SocialHandler{socialService: socialService, logger: logger}
 }
 
 func (h *SocialHandler) ToggleLike(c *gin.Context) {
@@ -32,7 +32,11 @@ func (h *SocialHandler) ToggleLike(c *gin.Context) {
 
 	liked, err := h.socialService.ToggleLike(c.Request.Context(), checkinID, oid)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("toggle like failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -64,7 +68,11 @@ func (h *SocialHandler) AddComment(c *gin.Context) {
 
 	comment, err := h.socialService.AddComment(c.Request.Context(), checkinID, oid, req.Content)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("add comment failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -83,7 +91,11 @@ func (h *SocialHandler) GetComments(c *gin.Context) {
 
 	comments, total, err := h.socialService.GetComments(c.Request.Context(), checkinID, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("get comments failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}

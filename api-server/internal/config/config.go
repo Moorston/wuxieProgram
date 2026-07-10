@@ -12,8 +12,13 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	WX       WXConfig       `mapstructure:"wx"`
+	CORS     CORSConfig     `mapstructure:"cors"`
 	MediaURL    string         `mapstructure:"media_url"`
 	MediaSecret string         `mapstructure:"media_secret"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 type ServerConfig struct {
@@ -53,6 +58,11 @@ func Load() *Config {
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.mode", "debug")
 	viper.SetDefault("jwt.expires", 72)
+	viper.SetDefault("cors.allowed_origins", []string{
+		"http://localhost:8080",
+		"http://localhost:3000",
+		"http://localhost",
+	})
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("config file not found, using defaults: %v", err)

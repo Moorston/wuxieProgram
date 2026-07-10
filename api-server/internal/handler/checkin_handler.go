@@ -1,22 +1,22 @@
 package handler
 
 import (
-	"log"
-
 	"wuxie-api/internal/service"
 	"wuxie-api/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type CheckinHandler struct {
 	checkinService *service.CheckinService
 	socialService  *service.SocialService
+	logger         *zap.Logger
 }
 
-func NewCheckinHandler(checkinService *service.CheckinService, socialService *service.SocialService) *CheckinHandler {
-	return &CheckinHandler{checkinService: checkinService, socialService: socialService}
+func NewCheckinHandler(checkinService *service.CheckinService, socialService *service.SocialService, logger *zap.Logger) *CheckinHandler {
+	return &CheckinHandler{checkinService: checkinService, socialService: socialService, logger: logger}
 }
 
 type PrepareReq struct {
@@ -39,7 +39,11 @@ func (h *CheckinHandler) Prepare(c *gin.Context) {
 
 	checkin, err := h.checkinService.Prepare(c.Request.Context(), oid, req.Description)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("prepare checkin failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -67,7 +71,7 @@ func (h *CheckinHandler) GetByID(c *gin.Context) {
 
 	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), []primitive.ObjectID{id}, oid)
 	if err != nil {
-		log.Printf("[WARN] batch is_liked failed: %v", err)
+		h.logger.Warn("batch is_liked failed", zap.Error(err))
 	}
 	checkin.IsLiked = likedMap[id]
 
@@ -91,7 +95,11 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 
 	checkins, total, err := h.checkinService.GetList(c.Request.Context(), oid, groupID, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("get checkin list failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -102,7 +110,7 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 	}
 	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
 	if err != nil {
-		log.Printf("[WARN] batch is_liked failed: %v", err)
+		h.logger.Warn("batch is_liked failed", zap.Error(err))
 	}
 	for i := range checkins {
 		checkins[i].IsLiked = likedMap[checkins[i].ID]
@@ -126,7 +134,11 @@ func (h *CheckinHandler) GetMine(c *gin.Context) {
 
 	checkins, total, err := h.checkinService.GetMine(c.Request.Context(), oid, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("get mine checkins failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -150,7 +162,11 @@ func (h *CheckinHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.checkinService.Delete(c.Request.Context(), checkinID, oid); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("delete checkin failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -174,7 +190,11 @@ func (h *CheckinHandler) Search(c *gin.Context) {
 
 	checkins, total, err := h.checkinService.Search(c.Request.Context(), oid, keyword, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("search checkin failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -185,7 +205,7 @@ func (h *CheckinHandler) Search(c *gin.Context) {
 	}
 	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
 	if err != nil {
-		log.Printf("[WARN] batch is_liked failed: %v", err)
+		h.logger.Warn("batch is_liked failed", zap.Error(err))
 	}
 	for i := range checkins {
 		checkins[i].IsLiked = likedMap[checkins[i].ID]
@@ -221,7 +241,11 @@ func (h *CheckinHandler) TranscodeCallback(c *gin.Context) {
 	}
 
 	if err := h.checkinService.Callback(c.Request.Context(), checkinID, req.VideoURL, req.CoverURL, req.Duration); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("transcode callback failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}

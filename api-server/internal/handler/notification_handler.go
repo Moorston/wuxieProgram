@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"strconv"
 
 	"wuxie-api/internal/service"
@@ -9,14 +8,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type NotificationHandler struct {
 	notifService *service.NotificationService
+	logger       *zap.Logger
 }
 
-func NewNotificationHandler(notifService *service.NotificationService) *NotificationHandler {
-	return &NotificationHandler{notifService: notifService}
+func NewNotificationHandler(notifService *service.NotificationService, logger *zap.Logger) *NotificationHandler {
+	return &NotificationHandler{notifService: notifService, logger: logger}
 }
 
 func (h *NotificationHandler) List(c *gin.Context) {
@@ -36,7 +37,11 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 	notifications, total, err := h.notifService.List(c.Request.Context(), oid, page, pageSize)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("list notifications failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -55,7 +60,11 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 
 	count, err := h.notifService.UnreadCount(c.Request.Context(), oid)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+		h.logger.Error("get unread count failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -64,19 +73,22 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 }
 
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid notification id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.notifService.MarkRead(c.Request.Context(), id, uid); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err := h.notifService.MarkRead(c.Request.Context(), oid, id); err != nil {
+		h.logger.Error("mark notification read failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -85,13 +97,17 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 }
 
 func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	if err := h.notifService.MarkAllRead(c.Request.Context(), uid); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err := h.notifService.MarkAllRead(c.Request.Context(), oid); err != nil {
+		h.logger.Error("mark all notifications read failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -100,19 +116,22 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 }
 
 func (h *NotificationHandler) Delete(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	id, err := primitive.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid notification id")
+	id, ok := getObjectID(c, "id")
+	if !ok {
 		return
 	}
 
-	if err := h.notifService.Delete(c.Request.Context(), id, uid); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err := h.notifService.Delete(c.Request.Context(), oid, id); err != nil {
+		h.logger.Error("delete notification failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -121,14 +140,13 @@ func (h *NotificationHandler) Delete(c *gin.Context) {
 }
 
 func (h *NotificationHandler) GetSettings(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	settings, err := h.notifService.GetSettings(c.Request.Context(), uid)
+	settings, err := h.notifService.GetSettings(c.Request.Context(), oid)
 	if err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
 		response.InternalError(c, "internal server error")
 		return
 	}
@@ -136,30 +154,24 @@ func (h *NotificationHandler) GetSettings(c *gin.Context) {
 	response.Success(c, settings)
 }
 
-type UpdateSettingsReq struct {
-	LikeNotify     *bool   `json:"like_notify"`
-	CommentNotify  *bool   `json:"comment_notify"`
-	PlanRemind     *bool   `json:"plan_remind"`
-	PlanRemindTime *string `json:"plan_remind_time"`
-	GroupNotify    *bool   `json:"group_notify"`
-}
-
 func (h *NotificationHandler) UpdateSettings(c *gin.Context) {
-	uid, ok := getUserID(c)
+	oid, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	var req UpdateSettingsReq
+	var req map[string]interface{}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid params")
 		return
 	}
 
-	if err := h.notifService.UpdateSettings(c.Request.Context(), uid,
-		req.LikeNotify, req.CommentNotify, req.PlanRemind, req.GroupNotify, req.PlanRemindTime,
-	); err != nil {
-		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	if err := h.notifService.UpdateSettings(c.Request.Context(), oid, req); err != nil {
+		h.logger.Error("update notification settings failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 		response.InternalError(c, "internal server error")
 		return
 	}
