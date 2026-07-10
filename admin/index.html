@@ -181,7 +181,7 @@ th{background:#f8fafc;color:#64748b;font-weight:600}
 
 <script>
 const {createApp,ref,reactive} = Vue
-const API = 'http://localhost:8080/api/admin'
+const API = (window.__CONFIG__ && window.__CONFIG__.API_BASE_URL) || 'http://localhost:8080/api/admin'
 
 createApp({
   setup(){
@@ -195,10 +195,17 @@ createApp({
     const userList = ref([])
     const userKeyword = ref('')
     const userLoading = ref(false)
+    const userPage = ref(1)
+    const userTotal = ref(0)
     const checkinList = ref([])
     const checkinLoading = ref(false)
+    const checkinPage = ref(1)
+    const checkinTotal = ref(0)
     const insightList = ref([])
     const insightLoading = ref(false)
+    const insightPage = ref(1)
+    const insightTotal = ref(0)
+    const PAGE_SIZE = 20
 
     function api(path,options={}){
       return fetch(API+path,{
@@ -233,48 +240,60 @@ createApp({
     async function loadUsers(){
       userLoading.value=true
       try{
-        const res=await api('/users?q='+encodeURIComponent(userKeyword.value))
-        if(res.code===0) userList.value=res.data?.list||[]
+        const res=await api(`/users?q=${encodeURIComponent(userKeyword.value)}&page=${userPage.value}&page_size=${PAGE_SIZE}`)
+        if(res.code===0){userList.value=res.data?.list||[];userTotal.value=res.data?.total||0}
       }finally{userLoading.value=false}
     }
 
     async function loadCheckins(){
       checkinLoading.value=true
       try{
-        const res=await api('/checkins')
-        if(res.code===0) checkinList.value=res.data?.list||[]
+        const res=await api(`/checkins?page=${checkinPage.value}&page_size=${PAGE_SIZE}`)
+        if(res.code===0){checkinList.value=res.data?.list||[];checkinTotal.value=res.data?.total||0}
       }finally{checkinLoading.value=false}
     }
 
     async function loadInsights(){
       insightLoading.value=true
       try{
-        const res=await api('/insights')
-        if(res.code===0) insightList.value=res.data?.list||[]
+        const res=await api(`/insights?page=${insightPage.value}&page_size=${PAGE_SIZE}`)
+        if(res.code===0){insightList.value=res.data?.list||[];insightTotal.value=res.data?.total||0}
       }finally{insightLoading.value=false}
     }
 
     async function banUser(id){
       if(!confirm('确认封禁该用户？')) return
-      await api('/users/'+id+'/ban',{method:'PUT'})
-      loadUsers()
+      try{
+        const res=await api('/users/'+id+'/ban',{method:'PUT'})
+        if(res.code!==0){alert('封禁失败: '+(res.message||'未知错误'));return}
+        loadUsers()
+      }catch(e){alert('网络错误: '+e.message)}
     }
 
     async function unbanUser(id){
-      await api('/users/'+id+'/unban',{method:'PUT'})
-      loadUsers()
+      try{
+        const res=await api('/users/'+id+'/unban',{method:'PUT'})
+        if(res.code!==0){alert('解封失败: '+(res.message||'未知错误'));return}
+        loadUsers()
+      }catch(e){alert('网络错误: '+e.message)}
     }
 
     async function deleteCheckin(id){
       if(!confirm('确认删除该打卡？')) return
-      await api('/checkins/'+id,{method:'DELETE'})
-      loadCheckins()
+      try{
+        const res=await api('/checkins/'+id,{method:'DELETE'})
+        if(res.code!==0){alert('删除失败: '+(res.message||'未知错误'));return}
+        loadCheckins()
+      }catch(e){alert('网络错误: '+e.message)}
     }
 
     async function deleteInsight(id){
       if(!confirm('确认删除该感悟？')) return
-      await api('/insights/'+id,{method:'DELETE'})
-      loadInsights()
+      try{
+        const res=await api('/insights/'+id,{method:'DELETE'})
+        if(res.code!==0){alert('删除失败: '+(res.message||'未知错误'));return}
+        loadInsights()
+      }catch(e){alert('网络错误: '+e.message)}
     }
 
     function switchTab(t){
@@ -288,7 +307,7 @@ createApp({
     // 初始加载
     if(token.value) loadDashboard()
 
-    return {token,tab,loginForm,loginError,loggingIn,doLogin,doLogout,stats,userList,userKeyword,userLoading,checkinList,checkinLoading,insightList,insightLoading,loadUsers,banUser,unbanUser,deleteCheckin,deleteInsight,switchTab,API}
+    return {token,tab,loginForm,loginError,loggingIn,doLogin,doLogout,stats,userList,userKeyword,userLoading,userPage,userTotal,checkinList,checkinLoading,checkinPage,checkinTotal,insightList,insightLoading,insightPage,insightTotal,loadUsers,banUser,unbanUser,deleteCheckin,deleteInsight,switchTab,API}
   }
 }).mount('#app')
 </script>

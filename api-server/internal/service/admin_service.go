@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 
 	"wuxie-api/internal/config"
@@ -52,7 +53,10 @@ func (s *AdminService) Login(username, password string) (string, error) {
 	if s.cfg.Admin == nil {
 		return "", fmt.Errorf("admin not configured")
 	}
-	if username != s.cfg.Admin.Username || password != s.cfg.Admin.Password {
+	// 常量时间比较防止时序攻击
+	usernameMatch := subtle.ConstantTimeCompare([]byte(username), []byte(s.cfg.Admin.Username))
+	passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(s.cfg.Admin.Password))
+	if usernameMatch&passwordMatch != 1 {
 		return "", fmt.Errorf("invalid credentials")
 	}
 
@@ -64,6 +68,7 @@ func (s *AdminService) Login(username, password string) (string, error) {
 }
 
 func (s *AdminService) GetUsers(ctx context.Context, page, pageSize int, keyword string) ([]*model.User, int64, error) {
+	page, pageSize = validatePagination(page, pageSize)
 	return s.userRepo.FindAll(ctx, page, pageSize, keyword)
 }
 
@@ -80,6 +85,10 @@ func (s *AdminService) GetStats(ctx context.Context) (*DashboardStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("count users: %w", err)
 	}
+	activeUsers, err := s.userRepo.CountByStatus(ctx, model.UserStatusActive)
+	if err != nil {
+		return nil, fmt.Errorf("count active users: %w", err)
+	}
 	bannedUsers, err := s.userRepo.CountByStatus(ctx, model.UserStatusBanned)
 	if err != nil {
 		return nil, fmt.Errorf("count banned users: %w", err)
@@ -91,17 +100,19 @@ func (s *AdminService) GetStats(ctx context.Context) (*DashboardStats, error) {
 
 	return &DashboardStats{
 		TotalUsers:    totalUsers,
-		ActiveUsers:   totalUsers - bannedUsers,
+		ActiveUsers:   activeUsers,
 		BannedUsers:   bannedUsers,
 		TotalCheckins: totalCheckins,
 	}, nil
 }
 
 func (s *AdminService) GetCheckins(ctx context.Context, page, pageSize int) ([]*model.Checkin, int64, error) {
+	page, pageSize = validatePagination(page, pageSize)
 	return s.checkinRepo.ListAll(ctx, page, pageSize)
 }
 
 func (s *AdminService) GetInsights(ctx context.Context, page, pageSize int) ([]*model.Insight, int64, error) {
+	page, pageSize = validatePagination(page, pageSize)
 	return s.insightRepo.ListAll(ctx, page, pageSize)
 }
 
@@ -111,4 +122,17 @@ func (s *AdminService) DeleteCheckin(ctx context.Context, id primitive.ObjectID)
 
 func (s *AdminService) DeleteInsight(ctx context.Context, id primitive.ObjectID) error {
 	return s.insightRepo.DeleteByID(ctx, id)
+}
+
+// validatePagination 验证分页参数
+func validatePagination(page, pageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	} else if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize
 }
