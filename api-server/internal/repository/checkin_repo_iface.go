@@ -20,6 +20,7 @@ type CheckinRepoInterface interface {
 	List(ctx context.Context, userID primitive.ObjectID, groupUserIDs []primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
 	ListByUser(ctx context.Context, userID primitive.ObjectID, page, pageSize int) ([]*model.Checkin, int64, error)
 	Delete(ctx context.Context, id, userID primitive.ObjectID) error
+	DeleteByID(ctx context.Context, id primitive.ObjectID) error
 	IncrLikeCount(ctx context.Context, id primitive.ObjectID, delta int) error
 	IncrCommentCount(ctx context.Context, id primitive.ObjectID) error
 	IncrLikeCountWithSession(sessCtx mongo.SessionContext, id primitive.ObjectID, delta int) error

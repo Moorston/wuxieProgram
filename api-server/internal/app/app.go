@@ -113,6 +113,9 @@ func New(cfg *config.Config) (*App, error) {
 	// Cron Service
 	cronService := service.NewCronService(userRepo, checkinRepo, rankRepo, trainingRepo, notifRepo, wxClient, cfg, logger)
 
+	// Admin Service
+	adminService := service.NewAdminService(userRepo, checkinRepo, insightRepo, jwtMgr, cfg, logger)
+
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)
 	userH := handler.NewUserHandler(userService, logger)
@@ -124,9 +127,10 @@ func New(cfg *config.Config) (*App, error) {
 	notifH := handler.NewNotificationHandler(notifService, logger)
 	insightH := handler.NewInsightHandler(insightService, logger)
 	resourceH := handler.NewResourceHandler(resourceService, logger)
+	adminH := handler.NewAdminHandler(adminService, logger)
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
 
 	// HTTP Server
 	addr := ":" + cfg.Server.Port

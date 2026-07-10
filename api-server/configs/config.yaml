@@ -31,3 +31,7 @@ cors:
     - "http://localhost"
     # 生产环境添加实际域名，如:
     # - "https://wuxie.example.com"
+
+admin:
+  username: "admin"
+  password: "change-me-in-production"

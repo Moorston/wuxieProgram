@@ -54,6 +54,26 @@ func Auth(jwtMgr *jwt.JWTManager, blacklist *TokenBlacklist) gin.HandlerFunc {
 		}
 
 		c.Set("user_id", claims.UserID)
+		c.Set("user_role", claims.Role)
+		c.Next()
+	}
+}
+
+// AdminOnly 验证用户是否为管理员
+// 应在 Auth 中间件之后使用
+func AdminOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := c.Get("user_role")
+		if !exists {
+			response.Forbidden(c, "access denied")
+			c.Abort()
+			return
+		}
+		if roleInt, ok := role.(int); !ok || roleInt != 1 {
+			response.Forbidden(c, "admin access required")
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }

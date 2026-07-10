@@ -8,6 +8,7 @@ import (
 
 type Claims struct {
 	UserID string `json:"user_id"`
+	Role   int    `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -28,17 +29,26 @@ func NewJWTManager(secret string, expiresHours int) *JWTManager {
 }
 
 func (j *JWTManager) Generate(userID string) (string, error) {
+	return j.generateToken(userID, 0, j.secret, j.expires, "wuxie-api")
+}
+
+func (j *JWTManager) GenerateWithRole(userID string, role int) (string, error) {
+	return j.generateToken(userID, role, j.secret, j.expires, "wuxie-api")
+}
+
+func (j *JWTManager) generateToken(userID string, role int, secret []byte, expires time.Duration, issuer string) (string, error) {
 	claims := Claims{
 		UserID: userID,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "wuxie-api",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.expires)),
+			Issuer:    issuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expires)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(j.secret)
+	return token.SignedString(secret)
 }
 
 func (j *JWTManager) Parse(tokenStr string) (*Claims, error) {

@@ -157,6 +157,12 @@ func (r *CheckinRepo) Delete(ctx context.Context, id, userID primitive.ObjectID)
 	return err
 }
 
+// DeleteByID 根据 ID 删除（管理员使用）
+func (r *CheckinRepo) DeleteByID(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.coll.DeleteOne(ctx, bson.M{"_id": id})
+	return err
+}
+
 func (r *CheckinRepo) IncrLikeCount(ctx context.Context, id primitive.ObjectID, delta int) error {
 	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, bson.M{
 		"$inc": bson.M{"like_count": delta},

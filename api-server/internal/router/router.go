@@ -25,6 +25,7 @@ func Setup(
 	notifH *handler.NotificationHandler,
 	insightH *handler.InsightHandler,
 	resourceH *handler.ResourceHandler,
+	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
 	userRepo *repository.UserRepo,
@@ -136,6 +137,20 @@ func Setup(
 		internal.Use(middleware.InternalAuth(cfg.MediaSecret))
 		{
 			internal.POST("/transcode/done", checkinH.TranscodeCallback)
+		}
+
+		// 管理后台接口（需要管理员认证）
+		admin := api.Group("/admin")
+		{
+			admin.POST("/login", adminH.Login)
+			adminAuth := admin.Group("", middleware.Auth(jwtMgr, blacklist), middleware.AdminOnly())
+			{
+				adminAuth.GET("/users", adminH.GetUsers)
+				adminAuth.PUT("/users/:id/ban", adminH.BanUser)
+				adminAuth.PUT("/users/:id/unban", adminH.UnbanUser)
+				adminAuth.DELETE("/checkins/:id", adminH.DeleteCheckin)
+				adminAuth.DELETE("/insights/:id", adminH.DeleteInsight)
+			}
 		}
 	}
 

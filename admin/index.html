@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>武俱打卡 - 管理后台</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, system-ui, sans-serif; background: #f0f2f5; color: #333; }
+.sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 220px; background: #1e293b; color: #fff; padding: 20px 0; }
+.sidebar h2 { padding: 0 20px 20px; border-bottom: 1px solid #334155; font-size: 18px; }
+.sidebar .nav-item { padding: 12px 20px; cursor: pointer; color: #94a3b8; transition: all .2s; }
+.sidebar .nav-item:hover, .sidebar .nav-item.active { background: #334155; color: #fff; }
+.main { margin-left: 220px; padding: 24px; }
+.header { background: #fff; padding: 16px 24px; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+th { background: #f8fafc; color: #64748b; font-weight: 600; }
+.btn { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-success { background: #22c55e; color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.ml-2 { margin-left: 8px; }
+.login-page { display: flex; justify-content: center; align-items: center; height: 100vh; }
+.login-box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.1); width: 360px; }
+.login-box h1 { text-align: center; margin-bottom: 32px; font-size: 24px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #64748b; }
+.form-group input { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
+.form-group input:focus { outline: none; border-color: #3b82f6; }
+.alert { padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 14px; }
+.alert-error { background: #fef2f2; color: #dc2626; }
+.alert-success { background: #f0fdf4; color: #16a34a; }
+.search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-box input { flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+.pagination button { padding: 6px 14px; border: 1px solid #e2e8f0; background: #fff; border-radius: 4px; cursor: pointer; }</style>
+</head>
+<body>
+<div id="app">
+  <!-- 登录页 -->
+  <div v-if="!token" class="login-page">
+    <div class="login-box">
+      <h1>🔐 管理后台</h1>
+      <div v-if="loginError" class="alert alert-error">{{ loginError }}</div>
+      <div class="form-group">
+        <label>用户名</label>
+        <input v-model="loginForm.username" @keyup.enter="doLogin" placeholder="admin">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input v-model="loginForm.password" type="password" @keyup.enter="doLogin" placeholder="••••••">
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px" @click="doLogin" :disabled="loggingIn">
+        {{ loggingIn ? '登录中...' : '登录' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- 管理面板 -->
+  <div v-else>
+    <div class="sidebar">
+      <h2>武俱管理</h2>
+      <div class="nav-item" :class="{ active: tab === 'dashboard' }" @click="tab='dashboard'">📊 仪表盘</div>
+      <div class="nav-item" :class="{ active: tab === 'users' }" @click="tab='users'">👥 用户管理</div>
+      <div class="nav-item" :class="{ active: tab === 'checkins' }" @click="tab='checkins'">📹 打卡管理</div>
+      <div class="nav-item" :class="{ active: tab === 'insights' }" @click="tab='insights'">📝 感悟管理</div>
+      <div class="nav-item" @click="doLogout" style="margin-top:40px;color:#ef4444">🚪 退出登录</div>
+    </div>
+
+    <div class="main">
+      <!-- 仪表盘 -->
+      <div v-if="tab === 'dashboard'">
+        <div class="header"><h2>📊 仪表盘</h2></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+          <div class="card" style="text-align:center"><h3 style="color:#3b82f6;font-size:36px">{{ stats.total_users }}</h3><p>总用户数</p></div>
+          <div class="card" style="text-align:center"><h3 style="color:#22c55e;font-size:36px">{{ stats.active_users }}</h3><p>活跃用户</p></div>
+          <div class="card" style="text-align:center"><h3 style="color:#f59e0b;font-size:36px">{{ stats.today_checkins }}</h3><p>今日打卡</p></div>
+          <div class="card" style="text-align:center"><h3 style="color:#ef4444;font-size:36px">{{ stats.banned_users }}</h3><p>封禁用户</p></div>
+        </div>
+      </div>
+
+      <!-- 用户管理 -->
+      <div v-if="tab === 'users'">
+        <div class="header"><h2>👥 用户管理</h2></div>
+        <div class="search-box">
+          <input v-model="userKeyword" placeholder="搜索用户昵称...">
+          <button class="btn btn-primary" @click="loadUsers">搜索</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>ID</th><th>昵称</th><th>积分</th><th>打卡天数</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="u in userList" :key="u.id">
+                <td style="font-family:monospace;font-size:12px">{{ u.id.slice(-8) }}</td>
+                <td>{{ u.nickname || '-' }}</td>
+                <td>{{ u.score }}</td>
+                <td>{{ u.check_days }}</td>
+                <td><span :style="{color: u.status === 1 ? '#ef4444' : '#22c55e'}">{{ u.status === 1 ? '封禁' : '正常' }}</span></td>
+                <td>{{ u.created_at?.slice(0,10) }}</td>
+                <td>
+                  <button v-if="u.status !== 1" class="btn btn-sm btn-danger" @click="banUser(u.id)">封禁</button>
+                  <button v-else class="btn btn-sm btn-success" @click="unbanUser(u.id)">解封</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="userLoading" style="text-align:center;padding:20px;color:#94a3b8">加载中...</div>
+        </div>
+      </div>
+
+      <!-- 打卡管理 -->
+      <div v-if="tab === 'checkins'">
+        <div class="header"><h2>📹 打卡管理</h2></div>
+        <div class="card">
+          <p style="color:#94a3b8">打卡内容管理（开发中）</p>
+        </div>
+      </div>
+
+      <!-- 感悟管理 -->
+      <div v-if="tab === 'insights'">
+        <div class="header"><h2>📝 感悟管理</h2></div>
+        <div class="card">
+          <p style="color:#94a3b8">感悟内容管理（开发中）</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive } = Vue
+
+const API = 'http://localhost:8080/api/admin'
+
+createApp({
+  setup() {
+    const token = ref(localStorage.getItem('admin_token') || '')
+    const tab = ref('dashboard')
+    const loginForm = reactive({ username: '', password: '' })
+    const loginError = ref('')
+    const loggingIn = ref(false)
+
+    const stats = reactive({ total_users: 0, active_users: 0, today_checkins: 0, banned_users: 0 })
+    const userList = ref([])
+    const userKeyword = ref('')
+    const userLoading = ref(false)
+
+    function api(path, options = {}) {
+      return fetch(API + path, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token.value ? { 'Authorization': 'Bearer ' + token.value } : {}),
+          ...options.headers,
+        },
+        ...options,
+      }).then(r => r.json())
+    }
+
+    async function doLogin() {
+      loggingIn.value = true
+      loginError.value = ''
+      try {
+        const res = await api('/login', {
+          method: 'POST',
+          body: JSON.stringify(loginForm),
+        })
+        if (res.code === 0 && res.data?.token) {
+          token.value = res.data.token
+          localStorage.setItem('admin_token', res.data.token)
+        } else {
+          loginError.value = res.message || '登录失败'
+        }
+      } catch (e) {
+        loginError.value = '网络错误'
+      } finally {
+        loggingIn.value = false
+      }
+    }
+
+    function doLogout() {
+      token.value = ''
+      localStorage.removeItem('admin_token')
+    }
+
+    async function loadUsers() {
+      userLoading.value = true
+      try {
+        const res = await api('/users?q=' + encodeURIComponent(userKeyword.value))
+        if (res.code === 0) userList.value = res.data?.list || []
+      } finally {
+        userLoading.value = false
+      }
+    }
+
+    async function banUser(id) {
+      if (!confirm('确认封禁该用户？')) return
+      await api('/users/' + id + '/ban', { method: 'PUT' })
+      loadUsers()
+    }
+
+    async function unbanUser(id) {
+      await api('/users/' + id + '/unban', { method: 'PUT' })
+      loadUsers()
+    }
+
+    // 自动加载
+    if (token.value) {
+      api('/stats').then(r => { if (r.code === 0 && r.data) Object.assign(stats, r.data) })
+      loadUsers()
+    }
+
+    return { token, tab, loginForm, loginError, loggingIn, doLogin, doLogout, stats, userList, userKeyword, userLoading, loadUsers, banUser, unbanUser }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

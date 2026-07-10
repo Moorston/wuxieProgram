@@ -20,6 +20,7 @@ type User struct {
 	Score     int                `bson:"score" json:"score"`
 	CheckDays int                `bson:"check_days" json:"check_days"`
 	Status    int                `bson:"status" json:"-"`                    // 安全：不暴露给前端
+	Role      int                `bson:"role" json:"-"`                      // 0=普通用户, 1=管理员
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }
@@ -28,6 +29,8 @@ type User struct {
 const (
 	UserStatusActive  = 0 // 正常
 	UserStatusBanned  = 1 // 封禁
+	UserRoleNormal    = 0 // 普通用户
+	UserRoleAdmin     = 1 // 管理员
 )
 
 // IsBanned 判断用户是否被封禁

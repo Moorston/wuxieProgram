@@ -13,8 +13,14 @@ type Config struct {
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	WX       WXConfig       `mapstructure:"wx"`
 	CORS     CORSConfig     `mapstructure:"cors"`
+	Admin    *AdminConfig   `mapstructure:"admin"`
 	MediaURL    string         `mapstructure:"media_url"`
 	MediaSecret string         `mapstructure:"media_secret"`
+}
+
+type AdminConfig struct {
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 type CORSConfig struct {

@@ -51,6 +51,12 @@ func (r *InsightRepo) Delete(ctx context.Context, id, userID primitive.ObjectID)
 	return err
 }
 
+// DeleteByID 根据 ID 删除（管理员使用）
+func (r *InsightRepo) DeleteByID(ctx context.Context, id primitive.ObjectID) error {
+	_, err := r.coll.DeleteOne(ctx, bson.M{"_id": id})
+	return err
+}
+
 func (r *InsightRepo) ListByUser(ctx context.Context, userID primitive.ObjectID, tag, mood string, page, pageSize int) ([]*model.Insight, int64, error) {
 	filter := bson.M{"user_id": userID}
 	if tag != "" {

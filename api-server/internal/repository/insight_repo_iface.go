@@ -20,6 +20,7 @@ type InsightRepoInterface interface {
 	FindByID(ctx context.Context, id primitive.ObjectID) (*model.Insight, error)
 	Update(ctx context.Context, id primitive.ObjectID, update bson.M) error
 	Delete(ctx context.Context, id, userID primitive.ObjectID) error
+	DeleteByID(ctx context.Context, id primitive.ObjectID) error
 	ListByUser(ctx context.Context, userID primitive.ObjectID, tag, mood string, page, pageSize int) ([]*model.Insight, int64, error)
 	ListPublic(ctx context.Context, page, pageSize int) ([]*model.Insight, int64, error)
 	OnThisDay(ctx context.Context, userID primitive.ObjectID, month, day int) ([]*model.Insight, error)
