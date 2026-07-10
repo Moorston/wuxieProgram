@@ -143,6 +143,66 @@ func (s *GroupService) JoinByInviteCode(ctx context.Context, userID primitive.Ob
 	return updatedGroup, nil
 }
 
+// RemoveMember 移除成员（仅组长可操作）
+func (s *GroupService) RemoveMember(ctx context.Context, groupID, operatorID, targetID primitive.ObjectID) error {
+	group, err := s.groupRepo.FindByID(ctx, groupID)
+	if err != nil {
+		return ErrGroupNotFound
+	}
+
+	if !group.IsLeader(operatorID) {
+		return ErrNotGroupLeader
+	}
+
+	if !group.HasMember(targetID) {
+		return ErrNotGroupMember
+	}
+
+	// 不能移除自己（组长）
+	if targetID == operatorID {
+		return ErrCannotRemoveLeader
+	}
+
+	return s.groupRepo.RemoveMember(ctx, groupID, targetID)
+}
+
+// LeaveGroup 成员主动退出团组
+func (s *GroupService) LeaveGroup(ctx context.Context, groupID, userID primitive.ObjectID) error {
+	group, err := s.groupRepo.FindByID(ctx, groupID)
+	if err != nil {
+		return ErrGroupNotFound
+	}
+
+	if !group.HasMember(userID) {
+		return ErrNotGroupMember
+	}
+
+	// 组长不能退出（需先转让组长）
+	if group.IsLeader(userID) {
+		return ErrLeaderCannotLeave
+	}
+
+	return s.groupRepo.RemoveMember(ctx, groupID, userID)
+}
+
+// SetLeader 转让组长（仅当前组长可操作）
+func (s *GroupService) SetLeader(ctx context.Context, groupID, operatorID, newLeaderID primitive.ObjectID) error {
+	group, err := s.groupRepo.FindByID(ctx, groupID)
+	if err != nil {
+		return ErrGroupNotFound
+	}
+
+	if !group.IsLeader(operatorID) {
+		return ErrNotGroupLeader
+	}
+
+	if !group.HasMember(newLeaderID) {
+		return ErrNotGroupMember
+	}
+
+	return s.groupRepo.SetLeader(ctx, groupID, newLeaderID)
+}
+
 // generateRandomCode 生成随机邀请码
 func generateRandomCode(length int) (string, error) {
 	bytes := make([]byte, length/2+1)
@@ -155,10 +215,13 @@ func generateRandomCode(length int) (string, error) {
 
 // 错误定义
 var (
-	ErrGroupNotFound     = &groupError{"group not found"}
-	ErrNotGroupLeader    = &groupError{"not group leader"}
-	ErrInvalidInviteCode = &groupError{"invalid invite code"}
-	ErrAlreadyMember     = &groupError{"already a member of this group"}
+	ErrGroupNotFound      = &groupError{"group not found"}
+	ErrNotGroupLeader     = &groupError{"not group leader"}
+	ErrInvalidInviteCode  = &groupError{"invalid invite code"}
+	ErrAlreadyMember      = &groupError{"already a member of this group"}
+	ErrNotGroupMember     = &groupError{"not a member of this group"}
+	ErrCannotRemoveLeader = &groupError{"cannot remove the group leader"}
+	ErrLeaderCannotLeave  = &groupError{"leader cannot leave; transfer leadership first"}
 )
 
 type groupError struct {

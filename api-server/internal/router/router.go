@@ -90,6 +90,9 @@ func Setup(
 			auth.GET("/group/:id", groupH.Detail)
 			auth.POST("/group/:id/invite", groupH.GenerateInviteCode)
 			auth.POST("/group/join", groupH.JoinByInviteCode)
+			auth.POST("/group/:id/remove-member", groupH.RemoveMember)
+			auth.POST("/group/:id/leave", groupH.LeaveGroup)
+			auth.POST("/group/:id/set-leader", groupH.SetLeader)
 
 			// 团组公告
 			auth.POST("/group/announcements", annH.Create)

@@ -35,3 +35,15 @@ export function getGroupAnnouncements(groupId: string, page = 1, pageSize = 20) 
 export function deleteGroupAnnouncement(id: string) {
   return request({ url: `/api/group/announcements/${id}`, method: 'DELETE' })
 }
+
+export function removeGroupMember(groupId: string, userId: string) {
+  return request({ url: `/api/group/${groupId}/remove-member`, method: 'POST', data: { user_id: userId } })
+}
+
+export function leaveGroup(groupId: string) {
+  return request({ url: `/api/group/${groupId}/leave`, method: 'POST' })
+}
+
+export function setGroupLeader(groupId: string, userId: string) {
+  return request({ url: `/api/group/${groupId}/set-leader`, method: 'POST', data: { user_id: userId } })
+}

@@ -24,6 +24,8 @@ type GroupRepoInterface interface {
 	FindByID(ctx context.Context, id primitive.ObjectID) (*model.Group, error)
 	FindByInviteCode(ctx context.Context, code string) (*model.Group, error)
 	AddMember(ctx context.Context, groupID, userID primitive.ObjectID) error
+	RemoveMember(ctx context.Context, groupID, userID primitive.ObjectID) error
+	SetLeader(ctx context.Context, groupID, leaderID primitive.ObjectID) error
 	UpdateInviteCode(ctx context.Context, groupID primitive.ObjectID, code string) error
 }
 

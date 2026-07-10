@@ -79,6 +79,32 @@ func (r *GroupRepo) UpdateInviteCode(ctx context.Context, groupID primitive.Obje
 	return err
 }
 
+// RemoveMember 从团组移除成员
+func (r *GroupRepo) RemoveMember(ctx context.Context, groupID, userID primitive.ObjectID) error {
+	_, err := r.coll.UpdateOne(ctx,
+		bson.M{"_id": groupID},
+		bson.M{
+			"$pull": bson.M{"member_ids": userID},
+			"$set":  bson.M{"updated_at": time.Now()},
+		},
+	)
+	return err
+}
+
+// SetLeader 设置团组组长
+func (r *GroupRepo) SetLeader(ctx context.Context, groupID, leaderID primitive.ObjectID) error {
+	_, err := r.coll.UpdateOne(ctx,
+		bson.M{"_id": groupID},
+		bson.M{
+			"$set": bson.M{
+				"leader_id":  leaderID,
+				"updated_at": time.Now(),
+			},
+		},
+	)
+	return err
+}
+
 type RankRepo struct {
 	coll *mongo.Collection
 }
