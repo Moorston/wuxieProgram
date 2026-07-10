@@ -27,6 +27,7 @@ func Setup(
 	resourceH *handler.ResourceHandler,
 	analyticsH *handler.AnalyticsHandler,
 	followH *handler.FollowHandler,
+	compH *handler.CompetitionHandler,
 	adminH *handler.AdminHandler,
 	jwtMgr *jwt.JWTManager,
 	blacklist *middleware.TokenBlacklist,
@@ -133,6 +134,14 @@ func Setup(
 			auth.GET("/feed", followH.GetFeed)
 			auth.GET("/user/:id/profile", followH.GetUserProfile)
 
+			// 赛事活动
+			auth.GET("/competitions", compH.List)
+			auth.GET("/competitions/:id", compH.Detail)
+			auth.POST("/competitions/:id/submit", compH.Submit)
+			auth.GET("/competitions/:id/entries", compH.Entries)
+			auth.GET("/competitions/:id/ranking", compH.Ranking)
+			auth.POST("/competitions/:id/entries/:entryId/score", compH.Score)
+
 			// 个人资料库
 			auth.GET("/resource/upload/presign", resourceH.Presign)
 			auth.POST("/resource/upload/callback", resourceH.UploadCallback)
@@ -185,6 +194,12 @@ func Setup(
 
 				// 操作日志
 				adminAuth.GET("/audit-logs", adminH.GetAuditLogs)
+
+				// 赛事管理
+				adminAuth.POST("/competitions", compH.Create)
+				adminAuth.GET("/competitions", compH.AdminList)
+				adminAuth.PUT("/competitions/:id", compH.AdminUpdate)
+				adminAuth.GET("/competitions/:id/export", compH.ExportRanking)
 			}
 		}
 	}

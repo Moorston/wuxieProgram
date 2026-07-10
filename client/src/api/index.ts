@@ -83,3 +83,6 @@ export { getCheckinHeatmap, getCheckinTrend, getAnalyticsOverview } from './anal
 
 // 社交
 export { followUser, unfollowUser, getFollowing, getFollowers, getFeed, getUserProfile } from './social'
+
+// 赛事
+export { getCompetitions, getCompetitionDetail, submitCompetitionEntry, getCompetitionEntries, getCompetitionRanking, scoreEntry } from './competition'

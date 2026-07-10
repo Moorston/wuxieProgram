@@ -86,6 +86,10 @@ func New(cfg *config.Config) (*App, error) {
 	// Follow
 	followRepo := repository.NewFollowRepo(db)
 
+	// Competition
+	compRepo := repository.NewCompetitionRepo(db)
+	entryRepo := repository.NewCompetitionEntryRepo(db)
+
 	// 创建索引
 	ctx := context.Background()
 	for name, ensureFn := range map[string]func(context.Context) error{
@@ -103,6 +107,8 @@ func New(cfg *config.Config) (*App, error) {
 		"resource_tag":   resourceTagRepo.EnsureIndexes,
 		"audit_log":      auditLogRepo.EnsureIndexes,
 		"follow":         followRepo.EnsureIndexes,
+		"competition":    compRepo.EnsureIndexes,
+		"competition_entry": entryRepo.EnsureIndexes,
 	} {
 		if err := ensureFn(ctx); err != nil {
 			log.Printf("WARNING: ensure index %s failed: %v", name, err)
@@ -139,6 +145,9 @@ func New(cfg *config.Config) (*App, error) {
 	// Follow Service
 	followService := service.NewFollowService(followRepo, checkinRepo, insightRepo, userRepo, logger)
 
+	// Competition Service
+	compService := service.NewCompetitionService(compRepo, entryRepo, checkinRepo, userRepo, logger)
+
 	// Handler
 	authH := handler.NewAuthHandler(authService, jwtMgr, tokenBlacklist, logger)
 	userH := handler.NewUserHandler(userService, logger)
@@ -153,9 +162,10 @@ func New(cfg *config.Config) (*App, error) {
 	adminH := handler.NewAdminHandler(adminService, logger)
 	analyticsH := handler.NewAnalyticsHandler(analyticsService)
 	followH := handler.NewFollowHandler(followService, logger)
+	compH := handler.NewCompetitionHandler(compService, logger)
 
 	// 路由
-	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
+	r := router.Setup(authH, userH, checkinH, socialH, rankH, groupH, trainingH, notifH, insightH, resourceH, analyticsH, followH, compH, adminH, jwtMgr, tokenBlacklist, userRepo, logger, cfg)
 
 	// HTTP Server
 	addr := ":" + cfg.Server.Port
