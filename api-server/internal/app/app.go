@@ -143,9 +143,9 @@ func New(cfg *config.Config) (*App, error) {
 	socialService := service.NewSocialService(commentRepo, likeRepo, checkinRepo, userRepo, notifService)
 	rankService := service.NewRankService(rankRepo)
 	groupService := service.NewGroupService(groupRepo, userRepo, logger)
-	trainingService := service.NewTrainingService(trainingRepo, templateRepo, notifService)
-	insightService := service.NewInsightService(insightRepo, insightTagRepo, insightLikeRepo, userRepo)
-	resourceService := service.NewResourceService(resourceRepo, resourceTagRepo, userRepo)
+	trainingService := service.NewTrainingService(trainingRepo, templateRepo, notifService, logger)
+	insightService := service.NewInsightService(insightRepo, insightTagRepo, insightLikeRepo, userRepo, logger)
+	resourceService := service.NewResourceService(resourceRepo, resourceTagRepo, userRepo, logger)
 
 	// WX Client
 	var wxClient *wxpkg.Client

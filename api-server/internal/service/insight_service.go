@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"wuxie-api/internal/model"
@@ -11,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.uber.org/zap"
 )
 
 type InsightService struct {
@@ -18,10 +18,11 @@ type InsightService struct {
 	tagRepo      repository.InsightTagRepoInterface
 	likeRepo     repository.InsightLikeRepoInterface
 	userRepo     repository.UserRepoInterface
+	logger       *zap.Logger
 }
 
-func NewInsightService(insightRepo repository.InsightRepoInterface, tagRepo repository.InsightTagRepoInterface, likeRepo repository.InsightLikeRepoInterface, userRepo repository.UserRepoInterface) *InsightService {
-	return &InsightService{insightRepo: insightRepo, tagRepo: tagRepo, likeRepo: likeRepo, userRepo: userRepo}
+func NewInsightService(insightRepo repository.InsightRepoInterface, tagRepo repository.InsightTagRepoInterface, likeRepo repository.InsightLikeRepoInterface, userRepo repository.UserRepoInterface, logger *zap.Logger) *InsightService {
+	return &InsightService{insightRepo: insightRepo, tagRepo: tagRepo, likeRepo: likeRepo, userRepo: userRepo, logger: logger}
 }
 
 func (s *InsightService) Create(ctx context.Context, userID primitive.ObjectID, insight *model.Insight) error {
@@ -43,7 +44,7 @@ func (s *InsightService) Create(ctx context.Context, userID primitive.ObjectID, 
 	if len(insight.Tags) > 0 {
 		if err := s.tagRepo.UpsertTags(ctx, userID, insight.Tags); err != nil {
 			// 标签更新失败不影响主流程，仅记录日志
-			log.Printf("[WARN] upsert insight tags failed: %v", err)
+			s.logger.Warn("upsert insight tags failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 	}
 
@@ -68,10 +69,10 @@ func (s *InsightService) Update(ctx context.Context, id, userID primitive.Object
 	// 处理JSON反序列化后的tags类型（可能是[]interface{}而非[]string）
 	if tags := extractTags(update["tags"]); tags != nil {
 		if err := s.tagRepo.DecrTags(ctx, userID, insight.Tags); err != nil {
-			log.Printf("[WARN] decr insight tags failed: %v", err)
+			s.logger.Warn("decr insight tags failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 		if err := s.tagRepo.UpsertTags(ctx, userID, tags); err != nil {
-			log.Printf("[WARN] upsert insight tags failed: %v", err)
+			s.logger.Warn("upsert insight tags failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 	}
 
@@ -86,7 +87,7 @@ func (s *InsightService) Delete(ctx context.Context, id, userID primitive.Object
 
 	if len(insight.Tags) > 0 {
 		if err := s.tagRepo.DecrTags(ctx, userID, insight.Tags); err != nil {
-			log.Printf("[WARN] decr insight tags failed: %v", err)
+			s.logger.Warn("decr insight tags failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 	}
 

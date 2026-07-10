@@ -3,19 +3,24 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 type TrainingService struct {
 	planRepo     repository.TrainingRepoInterface
 	templateRepo repository.TemplateRepoInterface
 	notifService *NotificationService
+	logger       *zap.Logger
+}
+
+func NewTrainingService(planRepo repository.TrainingRepoInterface, templateRepo repository.TemplateRepoInterface, notifService *NotificationService, logger *zap.Logger) *TrainingService {
+	return &TrainingService{planRepo: planRepo, templateRepo: templateRepo, notifService: notifService, logger: logger}
 }
 
 func NewTrainingService(planRepo repository.TrainingRepoInterface, templateRepo repository.TemplateRepoInterface, notifService *NotificationService) *TrainingService {
@@ -200,7 +205,7 @@ func (s *TrainingService) ApplyTemplate(ctx context.Context, userID primitive.Ob
 	}
 
 	if err := s.templateRepo.IncrUsageCount(ctx, templateID); err != nil {
-		log.Printf("[WARN] incr template usage count failed: %v", err)
+		s.logger.Warn("incr template usage count failed", zap.Error(err))
 	}
 
 	endDate := startDate.AddDate(0, 0, template.DurationDays)

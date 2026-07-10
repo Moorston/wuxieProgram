@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"wuxie-api/internal/model"
 	"wuxie-api/internal/repository"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
 const defaultQuota = 5 * 1024 * 1024 * 1024 // 5GB
@@ -18,10 +18,11 @@ type ResourceService struct {
 	resourceRepo repository.ResourceRepoInterface
 	tagRepo      repository.ResourceTagRepoInterface
 	userRepo     repository.UserRepoInterface
+	logger       *zap.Logger
 }
 
-func NewResourceService(resourceRepo repository.ResourceRepoInterface, tagRepo repository.ResourceTagRepoInterface, userRepo repository.UserRepoInterface) *ResourceService {
-	return &ResourceService{resourceRepo: resourceRepo, tagRepo: tagRepo, userRepo: userRepo}
+func NewResourceService(resourceRepo repository.ResourceRepoInterface, tagRepo repository.ResourceTagRepoInterface, userRepo repository.UserRepoInterface, logger *zap.Logger) *ResourceService {
+	return &ResourceService{resourceRepo: resourceRepo, tagRepo: tagRepo, userRepo: userRepo, logger: logger}
 }
 
 func (s *ResourceService) Create(ctx context.Context, userID primitive.ObjectID, res *model.Resource) error {
@@ -49,7 +50,7 @@ func (s *ResourceService) Create(ctx context.Context, userID primitive.ObjectID,
 		if err == nil && newStats.TotalSize > newStats.Quota {
 			// 超出配额，回滚：删除刚创建的资源
 			if delErr := s.resourceRepo.Delete(ctx, res.ID); delErr != nil {
-				log.Printf("CRITICAL: failed to rollback resource %s after quota exceeded: %v\n", res.ID.Hex(), delErr)
+				s.logger.Error("failed to rollback resource after quota exceeded", zap.String("resource_id", res.ID.Hex()), zap.Error(delErr))
 			}
 			return fmt.Errorf("存储空间不足，并发写入超出配额")
 		}
@@ -57,7 +58,7 @@ func (s *ResourceService) Create(ctx context.Context, userID primitive.ObjectID,
 
 	if len(res.Tags) > 0 {
 		if err := s.tagRepo.UpsertTags(ctx, userID, res.Tags); err != nil {
-			log.Printf("warning: upsert resource tags failed: %v\n", err)
+			s.logger.Warn("resource tags operation failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 	}
 
@@ -82,10 +83,10 @@ func (s *ResourceService) Update(ctx context.Context, id, userID primitive.Objec
 	// 处理JSON反序列化后的tags类型（可能是[]interface{}而非[]string）
 	if tags := extractTags(update["tags"]); tags != nil {
 		if err := s.tagRepo.DecrTags(ctx, userID, res.Tags); err != nil {
-			log.Printf("warning: decr resource tags failed: %v\n", err)
+			s.logger.Warn("resource tags decr failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 		if err := s.tagRepo.UpsertTags(ctx, userID, tags); err != nil {
-			log.Printf("warning: upsert resource tags failed: %v\n", err)
+			s.logger.Warn("resource tags operation failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 	}
 
@@ -105,7 +106,7 @@ func (s *ResourceService) Delete(ctx context.Context, id, userID primitive.Objec
 
 	if len(res.Tags) > 0 {
 		if err := s.tagRepo.DecrTags(ctx, userID, res.Tags); err != nil {
-			log.Printf("warning: decr resource tags failed: %v\n", err)
+			s.logger.Warn("resource tags decr failed", zap.String("user_id", userID.Hex()), zap.Error(err))
 		}
 	}
 

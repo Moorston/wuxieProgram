@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"log"
 
 	apperrors "wuxie-api/pkg/errors"
 	"wuxie-api/pkg/response"
@@ -42,7 +41,6 @@ func respondWithError(c *gin.Context, err error) {
 		return
 	}
 
-	// 其他错误 → 500（不暴露内部信息）
-	log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	// 其他错误 → 500（不暴露内部信息，由调用方记录日志）
 	response.InternalError(c, "internal server error")
 }
