@@ -71,7 +71,11 @@ func (h *CheckinHandler) GetByID(c *gin.Context) {
 
 	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), []primitive.ObjectID{id}, oid)
 	if err != nil {
-		h.logger.Warn("batch is_liked failed", zap.Error(err))
+		h.logger.Error("batch is_liked failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 	}
 	checkin.IsLiked = likedMap[id]
 
@@ -110,7 +114,11 @@ func (h *CheckinHandler) GetList(c *gin.Context) {
 	}
 	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
 	if err != nil {
-		h.logger.Warn("batch is_liked failed", zap.Error(err))
+		h.logger.Error("batch is_liked failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 	}
 	for i := range checkins {
 		checkins[i].IsLiked = likedMap[checkins[i].ID]
@@ -205,7 +213,11 @@ func (h *CheckinHandler) Search(c *gin.Context) {
 	}
 	likedMap, err := h.socialService.BatchIsLiked(c.Request.Context(), checkinIDs, oid)
 	if err != nil {
-		h.logger.Warn("batch is_liked failed", zap.Error(err))
+		h.logger.Error("batch is_liked failed",
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.Error(err),
+		)
 	}
 	for i := range checkins {
 		checkins[i].IsLiked = likedMap[checkins[i].ID]
