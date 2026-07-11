@@ -232,8 +232,6 @@ func TestWXLogin_WXAPIError(t *testing.T) {
 }
 
 func TestWXLogin_NetworkRetry(t *testing.T) {
-	// 注意：此测试因 getOpenID 的退避 sleep 需要 ~1.5 秒
-	// TODO: 后续可注入 sleep 函数以加速测试
 	repo := &mockUserRepo{
 		upsertFn: func(ctx context.Context, openid, nickname, avatar string, gender int) (*model.User, bool, error) {
 			return &model.User{ID: primitive.NewObjectID(), OpenID: openid}, true, nil
